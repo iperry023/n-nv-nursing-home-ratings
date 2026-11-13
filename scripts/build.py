@@ -24,6 +24,7 @@ import re
 import sys
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -46,6 +47,14 @@ def fetch_dataset(dataset, value, prop="state"):
         name = "provider.json" if dataset == PROVIDER_DATASET else "deficiencies.json"
         return json.loads((Path(fixture) / name).read_text())
 
+    try:
+        return fetch_query_api(dataset, value, prop)
+    except Exception as exc:
+        print(f"Query API failed for {dataset} ({exc}); trying the CSV download.", file=sys.stderr)
+        return fetch_csv_fallback(dataset, value, prop)
+
+
+def fetch_query_api(dataset, value, prop):
     rows, offset = [], 0
     while True:
         params = {
@@ -63,17 +72,49 @@ def fetch_dataset(dataset, value, prop="state"):
         offset += PAGE
 
 
-def get_json(url, tries=4):
+HEADERS = {
+    # data.cms.gov sits behind a bot filter that refuses unfamiliar clients.
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
+    "Accept": "application/json, text/csv, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+def http_get(url, tries=4, timeout=120):
     for attempt in range(tries):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "nv-nursing-home-ratings"})
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                return json.load(resp)
-        except Exception as exc:  # network hiccups on CMS's side are common
+            req = urllib.request.Request(url, headers=HEADERS)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as exc:
+            body = exc.read()[:300].decode("utf-8", "replace")
+            print(f"HTTP {exc.code} from {url[:120]}: {body}", file=sys.stderr)
             if attempt == tries - 1:
                 raise
+        except Exception as exc:  # network hiccups on CMS's side are common
             print(f"retrying after error: {exc}", file=sys.stderr)
-            time.sleep(5 * (attempt + 1))
+            if attempt == tries - 1:
+                raise
+        time.sleep(5 * (attempt + 1))
+
+
+def get_json(url, tries=4):
+    return json.loads(http_get(url, tries))
+
+
+def fetch_csv_fallback(dataset, value, prop):
+    """Download the dataset's full CSV (linked from the CMS catalog) and filter it locally."""
+    meta = get_json(f"https://data.cms.gov/provider-data/api/1/metastore/schemas/dataset/items/{dataset}")
+    url = next(d["downloadURL"] for d in meta["distribution"] if d.get("downloadURL", "").endswith(".csv"))
+    print(f"Falling back to CSV download: {url}", file=sys.stderr)
+    text = http_get(url, tries=3, timeout=600).decode("utf-8-sig", "replace")
+    out = []
+    for row in csv.DictReader(text.splitlines()):
+        r = {norm(k): v for k, v in row.items()}
+        key = r.get(prop) if prop != "state" else (r.get("state") or r.get("provider_state"))
+        if key is not None and str(key).strip().upper() == str(value).upper():
+            out.append(r)
+    return out
 
 
 # ---------------------------------------------------------------- column helpers
