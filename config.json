@@ -1,23 +1,25 @@
 {
-  "_about": "Settings for the weekly build. Edit this file (not the script) when CMS changes fixed thresholds or you want to change which facilities are included.",
+  "_about": "Settings for the site build. Edit this file (not the script) to change which facilities are shown or when CMS publishes new fixed thresholds.",
 
-  "state": "NV",
-
-  "exclude": {
-    "_about": "Facilities in these counties are left out unless their city is in keep_cities. Default: drop the Las Vegas metro (Clark County) but keep Mesquite.",
-    "counties": ["CLARK"],
-    "keep_cities": ["MESQUITE"]
+  "area": {
+    "_about": "Facilities within radius_miles (straight line) of the origin ZIP are shown. also_include_ccns / exclude_ccns override the radius. fallback_ccns is only used if a CMS file ever arrives without latitude/longitude.",
+    "origin": {"zip": "89509", "lat": 39.4966, "lon": -119.8338},
+    "radius_miles": 50,
+    "also_include_ccns": ["295011"],
+    "_also_include_note": "295011 = South Lyon Medical Center, Yerington (about 50.2 mi, just outside the line)",
+    "exclude_ccns": [],
+    "fallback_ccns": ["295096", "295043", "295077", "295103", "295050", "295020", "295105", "295088", "295044",
+                      "295079", "295067", "295023", "295104", "295082", "295011", "555231", "555698", "555433"]
   },
 
   "regions": {
-    "_about": "County -> region label shown on the site. Any county not listed falls under 'default'.",
-    "WASHOE": "Reno/Sparks",
-    "CARSON CITY": "Carson City",
-    "CLARK": "Rural Southern NV",
-    "NYE": "Rural Southern NV",
-    "LINCOLN": "Rural Southern NV",
-    "ESMERALDA": "Rural Southern NV",
-    "default": "Rural Northern NV"
+    "_about": "Region label by 'STATE:COUNTY', then by state, then default.",
+    "NV:WASHOE": "Reno/Sparks",
+    "NV:CARSON CITY": "Carson City",
+    "NV:DOUGLAS": "Carson Valley",
+    "NV:LYON": "Lyon County",
+    "CA": "Lake Tahoe / Sierra (CA)",
+    "default": "Other"
   },
 
   "staffing_ranges": {
@@ -30,20 +32,14 @@
   },
 
   "qm_ranges": {
-    "_source": "CMS Five-Star Technical Users' Guide, Sept 2026, Table 5 (effective July 2026 refresh). CMS may raise these again in January 2027.",
+    "_source": "CMS Five-Star Technical Users' Guide, Sept 2026, Table 5 (effective July 2026). CMS may raise these again in January 2027.",
     "overall": {"1": "299–927", "2": "928–1,120", "3": "1,121–1,299", "4": "1,300–1,493", "5": "1,494–2,300"},
     "long_stay": {"1": "155–484", "2": "485–589", "3": "590–667", "4": "668–766", "5": "767–1,150"},
     "short_stay": {"1": "144–442", "2": "443–530", "3": "531–631", "4": "632–726", "5": "727–1,150"}
   },
 
   "health_cut_points_official": {
-    "_about": "Nevada health inspection cut points from CMS's monthly State-Level Cut Point Table. Optional: when filled in, the site shows these instead of the estimate the script makes from the current data. Upper bound (inclusive) of each star band; 1 star is anything above the 2-star bound.",
-    "as_of": "2026-10-01",
-    "5": 16,
-    "4": 29,
-    "3": 46,
-    "2": 74
-  },
-
-  "use_official_cut_points": false
+    "_about": "Optional. Health inspection star cut points from CMS's monthly State-Level Cut Point Table (upper bound of each star band, lower score is better). Set use to true to show these instead of the estimate the build makes from the uploaded file.",
+    "NV": {"use": false, "as_of": "2026-10-01", "5": 16, "4": 29, "3": 46, "2": 74}
+  }
 }

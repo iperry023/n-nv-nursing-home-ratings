@@ -1,0 +1,24 @@
+{
+  "_about": "Immediate jeopardy (scope/severity J, K, L) and actual harm (G, H, I) health citation counts over the last 3 standard surveys plus ~36 months of complaint and infection-control surveys. Used by the site when no CMS citations CSV is uploaded. Kept up to date monthly from sources that republish CMS deficiency data.",
+  "updated": "2026-11-13",
+  "facilities": {
+    "295096": {"name": "Advanced Health Care of Reno", "immediate_jeopardy": 0, "actual_harm": 0, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Aug 2026"},
+    "295043": {"name": "Alpine Skilled Nursing and Rehabilitation Center", "immediate_jeopardy": 0, "actual_harm": 0, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Sep 2026"},
+    "295077": {"name": "Alta Skilled Nursing and Rehabilitation Center", "immediate_jeopardy": 0, "actual_harm": 0, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Aug 2026"},
+    "295103": {"name": "CareMeridian LLC, dba NeuroRestorative", "immediate_jeopardy": 0, "actual_harm": 1, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Jul 2026"},
+    "295050": {"name": "Life Care Center of Reno", "immediate_jeopardy": 0, "actual_harm": 0, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Sep 2026"},
+    "295020": {"name": "Rosewood Rehabilitation Center", "immediate_jeopardy": 0, "actual_harm": 0, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Sep 2026"},
+    "295105": {"name": "Northern Nevada State Veterans Home", "immediate_jeopardy": 0, "actual_harm": 0, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Sep 2026"},
+    "295088": {"name": "Wingfield Skilled Nursing and Rehabilitation Center", "immediate_jeopardy": 0, "actual_harm": 3, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Aug 2026"},
+    "295044": {"name": "Hearthstone Health and Rehabilitation", "immediate_jeopardy": 1, "actual_harm": 0, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Sep 2026"},
+    "295079": {"name": "Mountain View Health and Rehabilitation", "immediate_jeopardy": 0, "actual_harm": 1, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Sep 2026"},
+    "295067": {"name": "Ormsby Post Acute Rehabilitation", "immediate_jeopardy": 1, "actual_harm": 0, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Jul 2026"},
+    "295023": {"name": "Northstar Post Acute", "immediate_jeopardy": 0, "actual_harm": 1, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Sep 2026"},
+    "295104": {"name": "Sierra Basin Post Acute", "immediate_jeopardy": 0, "actual_harm": 0, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Aug 2026"},
+    "295082": {"name": "Gardnerville Health and Rehabilitation Center", "immediate_jeopardy": 0, "actual_harm": 1, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Sep 2026"},
+    "295011": {"name": "South Lyon Medical Center", "immediate_jeopardy": 0, "actual_harm": 0, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Jul 2026"},
+    "555231": {"name": "Tahoe Forest Hospital D/P SNF", "immediate_jeopardy": 0, "actual_harm": 0, "source": "ReadyRule (CMS Care Compare records)", "as_of": "through Feb 2026 survey"},
+    "555698": {"name": "Barton Hospital D/P SNF", "immediate_jeopardy": 0, "actual_harm": 2, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Sep 2026"},
+    "555433": {"name": "Eastern Plumas Hospital Portola Campus DP/SNF", "immediate_jeopardy": 0, "actual_harm": 4, "source": "ProPublica Nursing Home Inspect", "as_of": "CMS data Sep 2026"}
+  }
+}

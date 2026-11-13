@@ -1,0 +1,75 @@
+name: Build site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "uploads/**"
+      - "supplements/**"
+      - "scripts/**"
+      - "config.json"
+      - ".github/workflows/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: check
+        name: Look for a CMS upload
+        run: |
+          if ls uploads/*.csv uploads/*.zip >/dev/null 2>&1; then echo "ready=true" >> "$GITHUB_OUTPUT";
+          else echo "ready=false" >> "$GITHUB_OUTPUT"; echo "::notice::No CMS file in uploads/ yet - nothing to publish."; fi
+
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.ready == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Build the site from the newest CMS file
+        if: steps.check.outputs.ready == 'true'
+        run: python scripts/build.py
+
+      - name: Save a dated copy of the data
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          mkdir -p history
+          D=$(python3 -c "import json;print(json.load(open('site/data.json'))['meta']['cms_processing_date'] or 'unknown')")
+          cp site/data.csv "history/cms-$D.csv"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history
+          git diff --cached --quiet || git commit -m "Data snapshot for CMS processing date $D"
+          git push || echo "Snapshot push skipped"
+
+      - uses: actions/configure-pages@v5
+        if: steps.check.outputs.ready == 'true'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.check.outputs.ready == 'true'
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
