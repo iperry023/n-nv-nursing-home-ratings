@@ -1,0 +1,49 @@
+{
+  "_about": "Settings for the weekly build. Edit this file (not the script) when CMS changes fixed thresholds or you want to change which facilities are included.",
+
+  "state": "NV",
+
+  "exclude": {
+    "_about": "Facilities in these counties are left out unless their city is in keep_cities. Default: drop the Las Vegas metro (Clark County) but keep Mesquite.",
+    "counties": ["CLARK"],
+    "keep_cities": ["MESQUITE"]
+  },
+
+  "regions": {
+    "_about": "County -> region label shown on the site. Any county not listed falls under 'default'.",
+    "WASHOE": "Reno/Sparks",
+    "CARSON CITY": "Carson City",
+    "CLARK": "Rural Southern NV",
+    "NYE": "Rural Southern NV",
+    "LINCOLN": "Rural Southern NV",
+    "ESMERALDA": "Rural Southern NV",
+    "default": "Rural Northern NV"
+  },
+
+  "staffing_ranges": {
+    "_source": "CMS Five-Star Technical Users' Guide, Sept 2026, Table 3 (max 380 points)",
+    "1": "Under 155",
+    "2": "155–204",
+    "3": "205–254",
+    "4": "255–319",
+    "5": "320–380"
+  },
+
+  "qm_ranges": {
+    "_source": "CMS Five-Star Technical Users' Guide, Sept 2026, Table 5 (effective July 2026 refresh). CMS may raise these again in January 2027.",
+    "overall": {"1": "299–927", "2": "928–1,120", "3": "1,121–1,299", "4": "1,300–1,493", "5": "1,494–2,300"},
+    "long_stay": {"1": "155–484", "2": "485–589", "3": "590–667", "4": "668–766", "5": "767–1,150"},
+    "short_stay": {"1": "144–442", "2": "443–530", "3": "531–631", "4": "632–726", "5": "727–1,150"}
+  },
+
+  "health_cut_points_official": {
+    "_about": "Nevada health inspection cut points from CMS's monthly State-Level Cut Point Table. Optional: when filled in, the site shows these instead of the estimate the script makes from the current data. Upper bound (inclusive) of each star band; 1 star is anything above the 2-star bound.",
+    "as_of": "2026-10-01",
+    "5": 16,
+    "4": 29,
+    "3": 46,
+    "2": 74
+  },
+
+  "use_official_cut_points": false
+}

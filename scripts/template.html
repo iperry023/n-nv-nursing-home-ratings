@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Northern Nevada Nursing Home Ratings</title>
+<meta name="description" content="CMS Care Compare star ratings and survey citations for Nevada nursing homes outside the Las Vegas metro, updated weekly.">
+<style>
+  :root {
+    --bg: #f7f6f2; --card: #ffffff; --ink: #1d232b; --muted: #5d6673; --line: #e3e1da;
+    --accent: #1f5f8b; --s1: #c0392b; --s2: #e07b39; --s3: #c9a227; --s4: #5b9a4a; --s5: #23784a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171b; --card: #1c2026; --ink: #e8e9eb; --muted: #9aa3ae; --line: #2c323a; --accent: #6cb2e0; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); }
+  header, main, footer { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+  header { padding-top: 28px; }
+  h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 19px; margin: 36px 0 10px; }
+  h3 { font-size: 15px; margin: 22px 0 8px; }
+  .lede { color: var(--muted); margin: 0 0 12px; max-width: 760px; }
+  .meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  a { color: var(--accent); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 10px; }
+  .controls input, .controls select { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
+  .controls input { flex: 1 1 220px; }
+  .count { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; white-space: nowrap; }
+  thead th { position: sticky; top: 0; background: var(--card); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); cursor: pointer; user-select: none; white-space: normal; min-width: 70px; }
+  thead th[aria-sort="ascending"]::after { content: " \25B2"; }
+  thead th[aria-sort="descending"]::after { content: " \25BC"; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.name, th.name { position: sticky; left: 0; background: var(--card); white-space: normal; min-width: 200px; max-width: 260px; }
+  td.name a { font-weight: 600; text-decoration: none; }
+  td.name small { display: block; color: var(--muted); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .star { display: inline-block; min-width: 30px; text-align: center; padding: 2px 6px; border-radius: 999px; font-weight: 600; color: #fff; font-size: 13px; }
+  .star.s1 { background: var(--s1); } .star.s2 { background: var(--s2); } .star.s3 { background: var(--s3); } .star.s4 { background: var(--s4); } .star.s5 { background: var(--s5); }
+  .star.na { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 400; }
+  .range { display: block; font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .flag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; margin: 0 4px 2px 0; }
+  .flag.sff { color: var(--s1); } .flag.cand { color: var(--s2); } .flag.abuse { color: var(--s1); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .card table { font-size: 13px; }
+  .card th, .card td { padding: 6px 8px; white-space: normal; }
+  .card thead th { cursor: default; position: static; }
+  ul.notes { padding-left: 18px; margin: 6px 0; }
+  ul.notes li { margin: 4px 0; }
+  footer { font-size: 12px; color: var(--muted); padding-top: 28px; padding-bottom: 40px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Northern Nevada Nursing Home Ratings</h1>
+  <p class="lede">CMS Care Compare star ratings and health survey citations for every Medicare- and Medicaid-certified nursing home in Nevada outside the Las Vegas metro. Rebuilt every week from CMS's official data.</p>
+  <div class="meta">
+    <span>CMS data processed: <strong>{{PROCESSED}}</strong></span>
+    <span>Page built: {{BUILT}}</span>
+    <a href="data.csv" download>Download spreadsheet (CSV)</a>
+    <a href="#legend">Score legend</a>
+  </div>
+</header>
+
+<main>
+  <div class="controls">
+    <input id="q" type="search" placeholder="Search facility or city" aria-label="Search facility or city">
+    <select id="region" aria-label="Region"><option value="">All regions</option></select>
+  </div>
+  <div class="count" id="count"></div>
+  <div class="wrap">
+    <table id="t">
+      <thead><tr>
+        <th class="name" data-k="name">Facility</th>
+        <th data-k="overall">Overall</th>
+        <th data-k="health">Health insp.</th>
+        <th data-k="staffing">Staffing</th>
+        <th data-k="qm">Quality</th>
+        <th data-k="health_score">Health insp. score</th>
+        <th data-k="last_standard_survey">Last standard survey</th>
+        <th data-k="tags_last_standard">Tags that survey</th>
+        <th data-k="health_tags_on_record">Health tags ~3 yrs</th>
+        <th data-k="complaint_tags">Complaint tags</th>
+        <th data-k="serious">IJ / harm tags</th>
+        <th data-k="fines_usd">Fines (3 yrs)</th>
+        <th data-k="flags">Flags</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <h2 id="legend">Score legend</h2>
+  <p class="lede">What each star rating means in points. Health inspection scores are deficiency points (lower is better); staffing and quality are earned points (higher is better). The overall rating has no point range of its own.</p>
+  <div class="grid" id="legend-grid"></div>
+
+  <h3>Health inspection deficiency points (scope &times; severity)</h3>
+  <div class="card">
+    <table>
+      <thead><tr><th>Severity</th><th>Isolated</th><th>Pattern</th><th>Widespread</th></tr></thead>
+      <tbody>
+        <tr><td>Immediate jeopardy</td><td>J = 50 (75)</td><td>K = 100 (125)</td><td>L = 150 (175)</td></tr>
+        <tr><td>Actual harm, not IJ</td><td>G = 20</td><td>H = 35 (40)</td><td>I = 45 (50)</td></tr>
+        <tr><td>No actual harm, potential for more than minimal harm</td><td>D = 4</td><td>E = 8</td><td>F = 16 (20)</td></tr>
+        <tr><td>Potential for minimal harm</td><td>A = 0</td><td>B = 0</td><td>C = 0</td></tr>
+      </tbody>
+    </table>
+    <ul class="notes">
+      <li>Points in parentheses apply when the tag is substandard quality of care. Past-noncompliance immediate jeopardy tags score as a G (20).</li>
+      <li>The health inspection score adds up the last three standard surveys (weighted 1/2, 1/3, 1/6 by recency) plus 36 months of complaint and infection-control surveys, with repeat-revisit points.</li>
+    </ul>
+  </div>
+
+  <h3>How the overall rating is set</h3>
+  <ul class="notes">
+    <li>Start with the health inspection stars.</li>
+    <li>Add one star if staffing is 5&#9733;; subtract one if staffing is 1&#9733;.</li>
+    <li>Then add one star if quality is 5&#9733;; subtract one if quality is 1&#9733;. The result stays between 1 and 5.</li>
+    <li>A 1&#9733; health inspection rating can be raised by at most one star. Special Focus Facilities are not star-rated.</li>
+    <li>CMS holds a facility's health inspection stars until its score changes, so a score can sit outside this week's band for its stars.</li>
+  </ul>
+</main>
+
+<footer>
+  <p>Source: Centers for Medicare &amp; Medicaid Services, Provider Data Catalog (Nursing Home Provider Information and Health Deficiencies datasets), the data behind Medicare Care Compare. Point thresholds: CMS Five-Star Quality Rating System Technical Users' Guide. Health tags exclude fire/Life Safety Code citations. This site is not affiliated with CMS; confirm details on <a href="https://www.medicare.gov/care-compare/">Medicare Care Compare</a> before relying on them.</p>
+</footer>
+
+<script>
+const DATA = /*DATA*/null;
+const rows = DATA.facilities.map(f => ({ ...f, serious: (f.immediate_jeopardy || 0) * 1000 + (f.actual_harm || 0), flags: (f.special_focus ? 2 : 0) + (f.abuse_icon ? 1 : 0) }));
+const tbody = document.querySelector("#t tbody");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const star = (v, range) => (v ? `<span class="star s${v}">${v}&#9733;</span>` : `<span class="star na">n/a</span>`) + (range ? `<span class="range">${esc(range)}</span>` : "");
+const money = v => v ? "$" + Number(v).toLocaleString() : "$0";
+const date = v => v ? new Date(v + "T12:00:00").toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "&mdash;";
+const num = v => (v === null || v === undefined) ? "&mdash;" : esc(v);
+
+let sortKey = "name", sortDir = 1;
+
+function render() {
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  const region = document.getElementById("region").value;
+  const list = rows
+    .filter(r => (!region || r.region === region) && (!q || (r.name + " " + r.city).toLowerCase().includes(q)))
+    .sort((a, b) => {
+      const x = a[sortKey], y = b[sortKey];
+      if (x === y) return a.name.localeCompare(b.name);
+      if (x === null || x === undefined || x === "") return 1;
+      if (y === null || y === undefined || y === "") return -1;
+      return (typeof x === "number" ? x - y : String(x).localeCompare(String(y))) * sortDir;
+    });
+  tbody.innerHTML = list.map(r => {
+    const flags = [
+      r.special_focus === "Special Focus Facility" ? '<span class="flag sff">Special Focus</span>' : "",
+      r.special_focus === "Candidate" ? '<span class="flag cand">SFF candidate</span>' : "",
+      r.abuse_icon ? '<span class="flag abuse">Abuse icon</span>' : "",
+    ].join("");
+    const serious = [r.immediate_jeopardy ? `${r.immediate_jeopardy} IJ` : "", r.actual_harm ? `${r.actual_harm} harm` : ""].filter(Boolean).join(", ") || "None";
+    const today = (r.health_score_stars_today && r.health && r.health_score_stars_today !== r.health) ? `<span class="range">score earns ${r.health_score_stars_today}&#9733; this week</span>` : "";
+    return `<tr>
+      <td class="name"><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a><small>${esc(r.city)}${r.region !== r.city ? " &middot; " + esc(r.region) : ""}${r.beds ? " &middot; " + r.beds + " beds" : ""}</small></td>
+      <td>${star(r.overall)}</td>
+      <td>${star(r.health, r.health_range)}</td>
+      <td>${star(r.staffing, r.staffing_range ? r.staffing_range + " pts" : "")}</td>
+      <td>${star(r.qm, r.qm_range ? r.qm_range + " pts" : "")}</td>
+      <td class="num">${num(r.health_score)}${today}</td>
+      <td>${date(r.last_standard_survey)}</td>
+      <td class="num">${num(r.tags_last_standard)}</td>
+      <td class="num">${num(r.health_tags_on_record)}</td>
+      <td class="num">${num(r.complaint_tags)}</td>
+      <td>${serious}</td>
+      <td class="num">${money(r.fines_usd)}${r.payment_denials ? `<span class="range">${r.payment_denials} payment denial(s)</span>` : ""}</td>
+      <td style="white-space:normal;min-width:120px">${flags || "&mdash;"}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("count").textContent = `Showing ${list.length} of ${rows.length} facilities`;
+  document.querySelectorAll("thead th[data-k]").forEach(th => th.setAttribute("aria-sort", th.dataset.k === sortKey ? (sortDir > 0 ? "ascending" : "descending") : "none"));
+}
+
+document.querySelectorAll("#t thead th[data-k]").forEach(th => th.addEventListener("click", () => {
+  const k = th.dataset.k;
+  if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = ["name", "last_standard_survey"].includes(k) ? 1 : (["overall", "health", "staffing", "qm"].includes(k) ? -1 : 1); }
+  render();
+}));
+document.getElementById("q").addEventListener("input", render);
+document.getElementById("region").addEventListener("change", render);
+[...new Set(rows.map(r => r.region))].sort().forEach(r => {
+  const o = document.createElement("option"); o.value = o.textContent = r; document.getElementById("region").appendChild(o);
+});
+
+// legend
+const m = DATA.meta;
+const legendTable = (title, note, ranges, unit) => `<div class="card"><strong>${esc(title)}</strong>
+  <table><thead><tr><th>Stars</th><th>${esc(unit)}</th></tr></thead><tbody>
+  ${[5, 4, 3, 2, 1].map(s => `<tr><td><span class="star s${s}">${s}&#9733;</span></td><td>${esc(ranges[String(s)] || "")}</td></tr>`).join("")}
+  </tbody></table><div class="range">${esc(note)}</div></div>`;
+document.getElementById("legend-grid").innerHTML = [
+  legendTable("Health inspection (Nevada)", m.health_cut_source, m.health_bands, "Score (lower is better)"),
+  legendTable("Staffing", m.staffing_source, m.staffing_ranges, "Points of 380"),
+  legendTable("Quality measures — overall", m.qm_source, m.qm_ranges.overall, "Points of 2,300"),
+  legendTable("Long-stay quality", "", m.qm_ranges.long_stay, "Points of 1,150"),
+  legendTable("Short-stay quality", "Applied to adjusted scores (unadjusted × 1,150/800).", m.qm_ranges.short_stay, "Points of 1,150"),
+].join("");
+
+render();
+</script>
+</body>
+</html>
