@@ -31,7 +31,7 @@ jobs:
       - id: check
         name: Look for a CMS upload
         run: |
-          if ls uploads/*.csv uploads/*.zip >/dev/null 2>&1; then echo "ready=true" >> "$GITHUB_OUTPUT";
+          if compgen -G "uploads/*.csv" >/dev/null || compgen -G "uploads/*.zip" >/dev/null; then echo "ready=true" >> "$GITHUB_OUTPUT";
           else echo "ready=false" >> "$GITHUB_OUTPUT"; echo "::notice::No CMS file in uploads/ yet - nothing to publish."; fi
 
       - uses: actions/setup-python@v5
