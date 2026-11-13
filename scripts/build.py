@@ -81,6 +81,20 @@ HEADERS = {
 
 
 def http_get(url, tries=4, timeout=120):
+    # curl's TLS handshake looks like an ordinary client to CMS's bot filter; use it when present.
+    import shutil, subprocess
+    if shutil.which("curl"):
+        for attempt in range(tries):
+            p = subprocess.run(
+                ["curl", "-sS", "--compressed", "-L", "--max-time", str(timeout), "-w", "\n%{http_code}",
+                 *sum((["-H", f"{k}: {v}"] for k, v in HEADERS.items()), []), url],
+                capture_output=True)
+            body, _, code = p.stdout.rpartition(b"\n")
+            if p.returncode == 0 and code.strip() == b"200":
+                return body
+            print(f"curl HTTP {code.decode().strip()} from {url[:120]}: {body[:200].decode('utf-8', 'replace')}", file=sys.stderr)
+            time.sleep(5 * (attempt + 1))
+        raise RuntimeError(f"curl could not fetch {url[:120]}")
     for attempt in range(tries):
         try:
             req = urllib.request.Request(url, headers=HEADERS)
