@@ -15,7 +15,7 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); }
-  header, main, footer { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+  header, main, footer { max-width: 1440px; margin: 0 auto; padding: 0 16px; }
   header { padding-top: 28px; }
   h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.01em; }
   h2 { font-size: 19px; margin: 36px 0 10px; }
@@ -27,21 +27,37 @@
   .controls input, .controls select { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
   .controls input { flex: 1 1 220px; }
   .count { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-  .wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
-  table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; white-space: nowrap; }
-  thead th { position: sticky; top: 0; background: var(--card); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); cursor: pointer; user-select: none; white-space: normal; min-width: 70px; }
+  .wrap { background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  #t td { white-space: nowrap; }
+  thead th { position: sticky; top: 0; z-index: 1; background: var(--card); font-size: 11px; line-height: 1.3; text-transform: uppercase; letter-spacing: .02em; color: var(--muted); cursor: pointer; user-select: none; vertical-align: bottom; }
   thead th[aria-sort="ascending"]::after { content: " \25B2"; }
   thead th[aria-sort="descending"]::after { content: " \25BC"; }
   tbody tr:last-child td { border-bottom: none; }
-  td.name, th.name { position: sticky; left: 0; background: var(--card); white-space: normal; min-width: 200px; max-width: 260px; }
+  #t td.name, th.name { white-space: normal; width: 19%; min-width: 170px; }
+  #t td.wrapcell { white-space: normal; }
   td.name a { font-weight: 600; text-decoration: none; }
   td.name small { display: block; color: var(--muted); }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .star { display: inline-block; min-width: 30px; text-align: center; padding: 2px 6px; border-radius: 999px; font-weight: 600; color: #fff; font-size: 13px; }
   .star.s1 { background: var(--s1); } .star.s2 { background: var(--s2); } .star.s3 { background: var(--s3); } .star.s4 { background: var(--s4); } .star.s5 { background: var(--s5); }
   .star.na { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 400; }
-  .range { display: block; font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .range { display: block; font-size: 10.5px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  #cards { display: none; }
+  .fcard { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .fcard a { font-weight: 600; text-decoration: none; }
+  .fcard small { display: block; color: var(--muted); font-size: 12px; }
+  .fstars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 0 8px; }
+  .fstars div { font-size: 11px; color: var(--muted); }
+  .fstars .star { margin-top: 2px; }
+  .fstats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 12px; margin: 0; font-size: 13px; }
+  .fstats div { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); padding-top: 4px; }
+  .fstats dt { color: var(--muted); }
+  .fstats dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+  .fflags { margin-top: 8px; }
+  @media (max-width: 1259px) { .wrap { display: none; } #cards { display: block; } }
+  @media (min-width: 700px) and (max-width: 1259px) { #cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .fcard { margin-bottom: 0; } }
   .flag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; margin: 0 4px 2px 0; }
   .flag.sff { color: var(--s1); } .flag.cand { color: var(--s2); } .flag.abuse { color: var(--s1); }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
@@ -70,6 +86,15 @@
   <div class="controls">
     <input id="q" type="search" placeholder="Search facility or city" aria-label="Search facility or city">
     <select id="region" aria-label="Region"><option value="">All regions</option></select>
+    <select id="sort" aria-label="Sort by">
+      <option value="miles:1">Sort: closest first</option>
+      <option value="name:1">Sort: name</option>
+      <option value="overall:-1">Sort: overall stars</option>
+      <option value="health_score:1">Sort: best inspection score</option>
+      <option value="tags_last_standard:-1">Sort: most tags last survey</option>
+      <option value="serious:-1">Sort: most IJ / harm</option>
+      <option value="fines_usd:-1">Sort: highest fines</option>
+    </select>
   </div>
   <div class="count" id="count"></div>
   <div class="wrap">
@@ -81,18 +106,19 @@
         <th data-k="health">Health insp.</th>
         <th data-k="staffing">Staffing</th>
         <th data-k="qm">Quality</th>
-        <th data-k="health_score">Health insp. score</th>
-        <th data-k="last_standard_survey">Last standard survey</th>
-        <th data-k="tags_last_standard">Tags that survey</th>
-        <th data-k="health_tags_on_record">Health tags, 3 cycles</th>
-        <th data-k="complaint_tags">Complaint tags, 3 cycles</th>
-        <th data-k="serious">IJ / harm tags</th>
+        <th data-k="health_score">Insp. score</th>
+        <th data-k="last_standard_survey">Last std. survey</th>
+        <th data-k="tags_last_standard">Tags, last survey</th>
+        <th data-k="health_tags_on_record">Tags, 3 cycles</th>
+        <th data-k="complaint_tags">Complaint tags</th>
+        <th data-k="serious">IJ / harm</th>
         <th data-k="fines_usd">Fines (3 yrs)</th>
         <th data-k="flags">Flags</th>
       </tr></thead>
       <tbody></tbody>
     </table>
   </div>
+  <div id="cards"></div>
 
   <h2 id="legend">Score legend</h2>
   <p class="lede">What each star rating means in points. Health inspection scores are deficiency points (lower is better); staffing and quality are earned points (higher is better). The overall rating has no point range of its own.</p>
@@ -173,11 +199,34 @@ function render() {
       <td class="num">${num(r.tags_last_standard)}</td>
       <td class="num">${num(r.health_tags_on_record)}</td>
       <td class="num">${num(r.complaint_tags)}</td>
-      <td>${serious}</td>
+      <td class="wrapcell">${serious}</td>
       <td class="num">${money(r.fines_usd)}${r.payment_denials ? `<span class="range">${r.payment_denials} payment denial(s)</span>` : ""}</td>
-      <td style="white-space:normal;min-width:120px">${flags || "&mdash;"}</td>
+      <td class="wrapcell">${flags || "&mdash;"}</td>
     </tr>`;
   }).join("");
+  document.getElementById("cards").innerHTML = list.map(r => {
+    const flags = [r.special_focus === "Special Focus Facility" ? '<span class="flag sff">Special Focus</span>' : "", r.special_focus === "Candidate" ? '<span class="flag cand">SFF candidate</span>' : "", r.abuse_icon ? '<span class="flag abuse">Abuse icon</span>' : ""].join("");
+    const serious = (r.immediate_jeopardy == null && r.actual_harm == null) ? "&mdash;" : ([r.immediate_jeopardy ? `${r.immediate_jeopardy} IJ` : "", r.actual_harm ? `${r.actual_harm} harm` : ""].filter(Boolean).join(", ") || "None");
+    const stat = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
+    return `<div class="fcard">
+      <a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a>
+      <small>${esc(r.city)}${r.miles != null ? " &middot; " + r.miles + " mi" : ""}${r.beds ? " &middot; " + r.beds + " beds" : ""}</small>
+      <div class="fstars">
+        <div>Overall<br>${star(r.overall)}</div>
+        <div>Inspection<br>${star(r.health, r.health_range)}</div>
+        <div>Staffing<br>${star(r.staffing, r.staffing_range ? r.staffing_range + " pts" : "")}</div>
+        <div>Quality<br>${star(r.qm, r.qm_range ? r.qm_range + " pts" : "")}</div>
+      </div>
+      <dl class="fstats">
+        ${stat("Insp. score", num(r.health_score))}${stat("Last survey", date(r.last_standard_survey))}
+        ${stat("Tags, last survey", num(r.tags_last_standard))}${stat("Tags, 3 cycles", num(r.health_tags_on_record))}
+        ${stat("Complaint tags", num(r.complaint_tags))}${stat("IJ / harm", serious)}
+        ${stat("Fines (3 yrs)", money(r.fines_usd))}${stat("Denials", r.payment_denials || 0)}
+      </dl>
+      ${flags ? `<div class="fflags">${flags}</div>` : ""}
+    </div>`;
+  }).join("");
+  document.getElementById("sort").value = `${sortKey}:${sortDir}`;
   document.getElementById("count").textContent = `Showing ${list.length} of ${rows.length} facilities`;
   document.querySelectorAll("thead th[data-k]").forEach(th => th.setAttribute("aria-sort", th.dataset.k === sortKey ? (sortDir > 0 ? "ascending" : "descending") : "none"));
 }
@@ -189,6 +238,7 @@ document.querySelectorAll("#t thead th[data-k]").forEach(th => th.addEventListen
 }));
 document.getElementById("q").addEventListener("input", render);
 document.getElementById("region").addEventListener("change", render);
+document.getElementById("sort").addEventListener("change", e => { const [k, d] = e.target.value.split(":"); sortKey = k; sortDir = Number(d); render(); });
 [...new Set(rows.map(r => r.region))].sort().forEach(r => {
   const o = document.createElement("option"); o.value = o.textContent = r; document.getElementById("region").appendChild(o);
 });
