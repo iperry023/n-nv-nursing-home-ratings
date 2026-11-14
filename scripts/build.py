@@ -152,6 +152,48 @@ P = {
 }
 
 
+STAFF = {
+    # key: (column in the CMS file, decimals)
+    "residents": ("average_number_of_residents_per_day", 1),
+    "rn": ("reported_rn_staffing_hours_per_resident_per_day", 2),
+    "lpn": ("reported_lpn_staffing_hours_per_resident_per_day", 2),
+    "cna": ("reported_nurse_aide_staffing_hours_per_resident_per_day", 2),
+    "total": ("reported_total_nurse_staffing_hours_per_resident_per_day", 2),
+    "weekend_total": ("total_number_of_nurse_staff_hours_per_resident_per_day_on_the_weekend", 2),
+    "weekend_rn": ("registered_nurse_hours_per_resident_per_day_on_the_weekend", 2),
+    "pt": ("reported_physical_therapist_staffing_hours_per_resident_per_day", 2),
+    "adj_rn": ("adjusted_rn_staffing_hours_per_resident_per_day", 2),
+    "adj_lpn": ("adjusted_lpn_staffing_hours_per_resident_per_day", 2),
+    "adj_cna": ("adjusted_nurse_aide_staffing_hours_per_resident_per_day", 2),
+    "adj_total": ("adjusted_total_nurse_staffing_hours_per_resident_per_day", 2),
+    "adj_weekend_total": ("adjusted_weekend_total_nurse_staffing_hours_per_resident_per_day", 2),
+    "turnover_total": ("total_nursing_staff_turnover", 1),
+    "turnover_rn": ("registered_nurse_turnover", 1),
+    "admins_left": ("number_of_administrators_who_have_left_the_nursing_home", 0),
+    "case_mix": ("nursing_case_mix_index", 2),
+}
+
+
+def staff_fields(row):
+    out = {}
+    for key, (col, places) in STAFF.items():
+        v = to_float(row.get(col))
+        out[key] = None if v is None else (int(round(v)) if places == 0 else round(v, places))
+    return out
+
+
+def staffing_averages(rows, state):
+    """Unweighted averages of each staffing measure across facilities that report it."""
+    def avg(subset):
+        res = {}
+        for key, (col, places) in STAFF.items():
+            vals = [to_float(r.get(col)) for r in subset]
+            vals = [v for v in vals if v is not None]
+            res[key] = round(sum(vals) / len(vals), max(places, 1)) if vals else None
+        return res
+    return avg([r for r in rows if (P["state"](r) or "").upper() == state]), avg(rows)
+
+
 def check_columns(rows):
     needed = ["ccn", "name", "city", "state", "overall", "health", "staffing", "qm", "score"]
     missing = [k for k in needed if all(P[k](r) is None for r in rows[:200])]
@@ -346,12 +388,19 @@ def build():
             "special_focus": clean_sff(P["sff"](r)),
             "abuse_icon": yes(P["abuse"](r)),
             "care_compare_url": f"https://www.medicare.gov/care-compare/details/nursing-home/{ccn}?state={state}",
+            **staff_fields(r),
         })
 
     out.sort(key=lambda x: (x["miles"] if x["miles"] is not None else 999, x["name"]))
     processed = max((to_date(P["processed"](r)) for r, _, _ in chosen if to_date(P["processed"](r))), default=None)
     area = CONFIG["area"]
+    nv_avg, us_avg = staffing_averages(rows, "NV")
+    area_avg = {}
+    for key, (_, places) in STAFF.items():
+        vals = [f[key] for f in out if f.get(key) is not None]
+        area_avg[key] = round(sum(vals) / len(vals), max(places, 1)) if vals else None
     meta = {
+        "staffing_averages": {"area": area_avg, "NV": nv_avg, "US": us_avg},
         "built": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "cms_processing_date": processed.isoformat() if processed else None,
         "provider_file": provider_file,
@@ -381,7 +430,18 @@ CSV_COLS = [
     ("Health tags, last 3 rating cycles", "health_tags_on_record"), ("Complaint tags, last 3 rating cycles", "complaint_tags"),
     ("Immediate jeopardy tags", "immediate_jeopardy"), ("Actual harm tags", "actual_harm"),
     ("Fines (3 yrs, $)", "fines_usd"), ("Payment denials", "payment_denials"), ("Special Focus", "special_focus"),
-    ("CMS abuse icon", "abuse_icon"), ("Care Compare link", "care_compare_url"),
+    ("CMS abuse icon", "abuse_icon"),
+    ("Avg residents per day", "residents"), ("Nursing case-mix index", "case_mix"),
+    ("RN hrs/resident/day (reported)", "rn"), ("LPN hrs/resident/day (reported)", "lpn"),
+    ("CNA hrs/resident/day (reported)", "cna"), ("Total nurse hrs/resident/day (reported)", "total"),
+    ("Weekend total nurse hrs/resident/day", "weekend_total"), ("Weekend RN hrs/resident/day", "weekend_rn"),
+    ("PT hrs/resident/day", "pt"),
+    ("RN hrs (case-mix adjusted)", "adj_rn"), ("LPN hrs (case-mix adjusted)", "adj_lpn"),
+    ("CNA hrs (case-mix adjusted)", "adj_cna"), ("Total nurse hrs (case-mix adjusted)", "adj_total"),
+    ("Weekend total nurse hrs (case-mix adjusted)", "adj_weekend_total"),
+    ("Total nursing staff turnover %", "turnover_total"), ("RN turnover %", "turnover_rn"),
+    ("Administrators who left", "admins_left"),
+    ("Care Compare link", "care_compare_url"),
 ]
 
 

@@ -56,8 +56,9 @@
   .fstats dt { color: var(--muted); }
   .fstats dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
   .fflags { margin-top: 8px; }
-  @media (max-width: 1259px) { .wrap { display: none; } #cards { display: block; } }
-  @media (min-width: 700px) and (max-width: 1259px) { #cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .fcard { margin-bottom: 0; } }
+  #scards { display: none; }
+  @media (max-width: 1259px) { .wrap { display: none !important; } #cards, #scards { display: block; } }
+  @media (min-width: 700px) and (max-width: 1259px) { #cards, #scards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .fcard { margin-bottom: 0; } }
   .flag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; margin: 0 4px 2px 0; }
   .flag.sff { color: var(--s1); } .flag.cand { color: var(--s2); } .flag.abuse { color: var(--s1); }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
@@ -67,10 +68,22 @@
   .card thead th { cursor: default; position: static; }
   ul.notes { padding-left: 18px; margin: 6px 0; }
   ul.notes li { margin: 4px 0; }
+  .tabs { display: inline-flex; gap: 4px; margin-top: 18px; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+  .tabs button { font: inherit; font-size: 14px; border: 0; background: transparent; color: var(--muted); padding: 7px 14px; border-radius: 7px; cursor: pointer; }
+  .tabs button.on { background: var(--accent); color: #fff; font-weight: 600; }
+  .view-staffing .rview, .view-ratings .sview { display: none !important; }
+  #s td { white-space: nowrap; }
+  #s td.name { white-space: normal; }
+  #s td .adj { display: block; font-size: 10.5px; color: var(--muted); }
+  #s tfoot td { background: var(--bg); font-weight: 600; font-size: 12px; border-top: 2px solid var(--line); }
+  #s tfoot td.name { color: var(--muted); }
+  .better { color: var(--s5); } .worse { color: var(--s1); }
+  @media (prefers-color-scheme: dark) { .better { color: #6fcf8f; } .worse { color: #f08b7e; } }
+  .snote { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
   footer { font-size: 12px; color: var(--muted); padding-top: 28px; padding-bottom: 40px; }
 </style>
 </head>
-<body>
+<body class="view-ratings">
 <header>
   <h1>Reno-Area Nursing Home Ratings</h1>
   <p class="lede">CMS Care Compare star ratings, point ranges and health survey citations for every Medicare- and Medicaid-certified nursing home {{AREA}}. Rebuilt each month from CMS's official Provider Information file.</p>
@@ -80,24 +93,20 @@
     <a href="data.csv" download>Download spreadsheet (CSV)</a>
     <a href="#legend">Score legend</a>
   </div>
+  <div class="tabs" role="tablist">
+    <button data-view="ratings" class="on" role="tab">Ratings &amp; inspections</button>
+    <button data-view="staffing" role="tab">Staffing</button>
+  </div>
 </header>
 
 <main>
   <div class="controls">
     <input id="q" type="search" placeholder="Search facility or city" aria-label="Search facility or city">
     <select id="region" aria-label="Region"><option value="">All regions</option></select>
-    <select id="sort" aria-label="Sort by">
-      <option value="miles:1">Sort: closest first</option>
-      <option value="name:1">Sort: name</option>
-      <option value="overall:-1">Sort: overall stars</option>
-      <option value="health_score:1">Sort: best inspection score</option>
-      <option value="tags_last_standard:-1">Sort: most tags last survey</option>
-      <option value="serious:-1">Sort: most IJ / harm</option>
-      <option value="fines_usd:-1">Sort: highest fines</option>
-    </select>
+    <select id="sort" aria-label="Sort by"></select>
   </div>
   <div class="count" id="count"></div>
-  <div class="wrap">
+  <div class="wrap rview">
     <table id="t">
       <thead><tr>
         <th class="name" data-k="name">Facility</th>
@@ -118,7 +127,32 @@
       <tbody></tbody>
     </table>
   </div>
-  <div id="cards"></div>
+  <div id="cards" class="rview"></div>
+
+  <div class="wrap sview">
+    <table id="s">
+      <thead><tr>
+        <th class="name" data-k="name">Facility</th>
+        <th data-k="miles">Miles</th>
+        <th data-k="staffing">Staffing stars</th>
+        <th data-k="residents">Residents / day</th>
+        <th data-k="rn">RN hrs</th>
+        <th data-k="lpn">LPN hrs</th>
+        <th data-k="cna">CNA hrs</th>
+        <th data-k="total">Total nurse hrs</th>
+        <th data-k="weekend_total">Weekend total hrs</th>
+        <th data-k="weekend_rn">Weekend RN hrs</th>
+        <th data-k="pt">PT hrs</th>
+        <th data-k="turnover_total">Nursing turnover</th>
+        <th data-k="turnover_rn">RN turnover</th>
+        <th data-k="admins_left">Admins who left</th>
+      </tr></thead>
+      <tbody></tbody>
+      <tfoot></tfoot>
+    </table>
+  </div>
+  <div id="scards" class="sview"></div>
+  <p class="snote sview">Hours are per resident per day from CMS Payroll-Based Journal data. Small "adj" figures are CMS's case-mix adjusted hours, which account for how sick each home's residents are and drive the staffing star rating. Green = better than the national average, red = worse (for turnover, lower is better). Turnover is the share of nursing staff who left over a 12-month period.</p>
 
   <h2 id="legend">Score legend</h2>
   <p class="lede">What each star rating means in points. Health inspection scores are deficiency points (lower is better); staffing and quality are earned points (higher is better). The overall rating has no point range of its own.</p>
@@ -165,7 +199,27 @@ const money = v => v ? "$" + Number(v).toLocaleString() : "$0";
 const date = v => v ? new Date(v + "T12:00:00").toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "&mdash;";
 const num = v => (v === null || v === undefined) ? "&mdash;" : esc(v);
 
-let sortKey = "miles", sortDir = 1;
+let sortKey = "miles", sortDir = 1, view = "ratings";
+const SORTS = {
+  ratings: [["miles:1", "closest first"], ["name:1", "name"], ["overall:-1", "overall stars"], ["health_score:1", "best inspection score"],
+            ["tags_last_standard:-1", "most tags last survey"], ["serious:-1", "most IJ / harm"], ["fines_usd:-1", "highest fines"]],
+  staffing: [["miles:1", "closest first"], ["name:1", "name"], ["staffing:-1", "staffing stars"], ["total:-1", "most total nurse hours"],
+             ["rn:-1", "most RN hours"], ["cna:-1", "most CNA hours"], ["weekend_total:-1", "most weekend hours"],
+             ["turnover_total:1", "lowest nursing turnover"], ["turnover_rn:1", "lowest RN turnover"]],
+};
+// for each staffing measure: true if higher is better
+const STAFF_COLS = [["rn", true], ["lpn", true], ["cna", true], ["total", true], ["weekend_total", true], ["weekend_rn", true], ["pt", true],
+                    ["turnover_total", false], ["turnover_rn", false], ["admins_left", false]];
+const ADJ = { rn: "adj_rn", lpn: "adj_lpn", cna: "adj_cna", total: "adj_total", weekend_total: "adj_weekend_total" };
+const US = DATA.meta.staffing_averages ? DATA.meta.staffing_averages.US : {};
+const fmtStaff = (k, v) => v == null ? "&mdash;" : (k.startsWith("turnover") ? `${Number(v).toFixed(1)}%` : (k === "admins_left" ? v : Number(v).toFixed(2)));
+const tone = (k, v, higherBetter) => {
+  const ref = US[k];
+  if (v == null || ref == null || v === ref) return "";
+  return (v > ref) === higherBetter ? "better" : "worse";
+};
+const staffCell = (r, k, higherBetter) =>
+  `<td class="num ${tone(k, r[k], higherBetter)}">${fmtStaff(k, r[k])}${ADJ[k] && r[ADJ[k]] != null ? `<span class="adj">adj ${Number(r[ADJ[k]]).toFixed(2)}</span>` : ""}</td>`;
 
 function render() {
   const q = document.getElementById("q").value.trim().toLowerCase();
@@ -226,14 +280,59 @@ function render() {
       ${flags ? `<div class="fflags">${flags}</div>` : ""}
     </div>`;
   }).join("");
-  document.getElementById("sort").value = `${sortKey}:${sortDir}`;
+  document.querySelector("#s tbody").innerHTML = list.map(r => `<tr>
+      <td class="name"><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a><small>${esc(r.city)}${r.case_mix != null ? " &middot; case-mix " + Number(r.case_mix).toFixed(2) : ""}</small></td>
+      <td class="num">${num(r.miles)}</td>
+      <td>${star(r.staffing, r.staffing_range ? r.staffing_range + " pts" : "")}</td>
+      <td class="num">${r.residents != null ? Number(r.residents).toFixed(1) : "&mdash;"}</td>
+      ${STAFF_COLS.map(([k, hb]) => staffCell(r, k, hb)).join("")}
+    </tr>`).join("");
+  const avgs = DATA.meta.staffing_averages || {};
+  document.querySelector("#s tfoot").innerHTML = [["area", "Average, these facilities"], ["NV", "Nevada average"], ["US", "National average"]]
+    .filter(([k]) => avgs[k]).map(([k, label]) => `<tr>
+      <td class="name">${label}</td><td></td><td></td>
+      <td class="num">${avgs[k].residents != null ? Number(avgs[k].residents).toFixed(1) : ""}</td>
+      ${STAFF_COLS.map(([c]) => `<td class="num">${fmtStaff(c, avgs[k][c])}${ADJ[c] && avgs[k][ADJ[c]] != null ? `<span class="adj">adj ${Number(avgs[k][ADJ[c]]).toFixed(2)}</span>` : ""}</td>`).join("")}
+    </tr>`).join("");
+  document.getElementById("scards").innerHTML = list.map(r => {
+    const stat = (label, k, hb) => `<div><dt>${label}</dt><dd class="${tone(k, r[k], hb)}">${fmtStaff(k, r[k])}${ADJ[k] && r[ADJ[k]] != null ? ` <span class="range" style="display:inline">adj ${Number(r[ADJ[k]]).toFixed(2)}</span>` : ""}</dd></div>`;
+    return `<div class="fcard">
+      <a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a>
+      <small>${esc(r.city)}${r.miles != null ? " &middot; " + r.miles + " mi" : ""}${r.residents != null ? " &middot; " + Number(r.residents).toFixed(0) + " residents/day" : ""}</small>
+      <div class="fstars"><div>Staffing<br>${star(r.staffing, r.staffing_range ? r.staffing_range + " pts" : "")}</div></div>
+      <dl class="fstats">
+        ${stat("RN hrs", "rn", true)}${stat("LPN hrs", "lpn", true)}
+        ${stat("CNA hrs", "cna", true)}${stat("Total nurse hrs", "total", true)}
+        ${stat("Weekend total", "weekend_total", true)}${stat("Weekend RN", "weekend_rn", true)}
+        ${stat("Nursing turnover", "turnover_total", false)}${stat("RN turnover", "turnover_rn", false)}
+        ${stat("PT hrs", "pt", true)}${stat("Admins who left", "admins_left", false)}
+      </dl>
+    </div>`;
+  }).join("");
+  const sel = document.getElementById("sort");
+  if (sel.dataset.view !== view) {
+    sel.innerHTML = SORTS[view].map(([v, t]) => `<option value="${v}">Sort: ${t}</option>`).join("");
+    sel.dataset.view = view;
+  }
+  if (![...sel.options].some(o => o.value === `${sortKey}:${sortDir}`)) {
+    const o = document.createElement("option"); o.value = `${sortKey}:${sortDir}`; o.textContent = "Sort: custom"; sel.appendChild(o);
+  }
+  sel.value = `${sortKey}:${sortDir}`;
   document.getElementById("count").textContent = `Showing ${list.length} of ${rows.length} facilities`;
   document.querySelectorAll("thead th[data-k]").forEach(th => th.setAttribute("aria-sort", th.dataset.k === sortKey ? (sortDir > 0 ? "ascending" : "descending") : "none"));
 }
 
-document.querySelectorAll("#t thead th[data-k]").forEach(th => th.addEventListener("click", () => {
+const LOW_FIRST = ["name", "last_standard_survey", "miles", "health_score", "turnover_total", "turnover_rn", "admins_left"];
+document.querySelectorAll("#t thead th[data-k], #s thead th[data-k]").forEach(th => th.addEventListener("click", () => {
   const k = th.dataset.k;
-  if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = ["name", "last_standard_survey", "miles"].includes(k) ? 1 : (["overall", "health", "staffing", "qm"].includes(k) ? -1 : 1); }
+  if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = LOW_FIRST.includes(k) ? 1 : -1; }
+  render();
+}));
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  view = b.dataset.view;
+  document.body.className = `view-${view}`;
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  sortKey = "miles"; sortDir = 1;
   render();
 }));
 document.getElementById("q").addEventListener("input", render);
