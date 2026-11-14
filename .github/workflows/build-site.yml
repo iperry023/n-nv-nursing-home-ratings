@@ -15,6 +15,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  issues: write
 
 concurrency:
   group: pages
@@ -62,6 +63,18 @@ jobs:
         if: steps.check.outputs.ready == 'true'
         with:
           path: site
+
+      - name: Close the monthly reminder if this month's file is in
+        if: steps.check.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          D=$(python3 -c "import json;print(json.load(open('site/data.json'))['meta']['cms_processing_date'] or '')")
+          if [ "${D:0:7}" = "$(date -u +%Y-%m)" ]; then
+            for n in $(gh issue list --label upload-reminder --state open --json number --jq '.[].number' 2>/dev/null); do
+              gh issue close "$n" --comment "Got it: the site now shows CMS data processed $D."
+            done
+          fi
 
   deploy:
     needs: build

@@ -15,6 +15,11 @@ CMS refreshes Care Compare data about once a month. After it does:
 
 CMS blocks automated downloads from GitHub's servers, which is why the file is uploaded by hand.
 
+**Email reminder:** on the 2nd of each month, if the newest upload isn't from that month, the
+*Monthly upload reminder* action opens an issue that @mentions the owner, so GitHub sends an email with a
+direct upload link. It follows up on the 16th if the file still hasn't arrived, and the issue closes itself
+once the new file is built.
+
 ## Where each column comes from
 
 - Stars, health inspection score, survey dates, tag counts, fines, Special Focus and abuse flags:

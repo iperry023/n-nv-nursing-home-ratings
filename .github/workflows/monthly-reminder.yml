@@ -1,0 +1,84 @@
+name: Monthly upload reminder
+
+# On the 2nd of each month: if the newest CMS file in uploads/ is older than this month,
+# open a GitHub issue that @mentions the owner (GitHub emails them).
+# On the 16th: if that reminder is still open, add a follow-up comment (another email).
+# The Build site workflow closes the reminder when a new file is uploaded.
+
+on:
+  schedule:
+    - cron: "17 16 2 * *"   # 2nd of the month, 8:17 AM Pacific (standard time)
+    - cron: "17 16 16 * *"  # 16th of the month, follow-up if still not uploaded
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/monthly-reminder.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the newest uploaded CMS processing date
+        id: latest
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import csv, datetime as dt, glob, io, re
+          best = None
+          for path in glob.glob("uploads/*.csv"):
+              with open(path, encoding="utf-8-sig", errors="replace") as fh:
+                  reader = csv.reader(fh)
+                  header = [re.sub(r"[^a-z0-9]+", "_", h.lower()).strip("_") for h in next(reader, [])]
+                  if "processing_date" not in header:
+                      continue
+                  i = header.index("processing_date")
+                  for row in reader:
+                      v = (row[i] if i < len(row) else "")[:10]
+                      for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
+                          try:
+                              d = dt.datetime.strptime(v, fmt).date()
+                              best = d if best is None or d > best else best
+                              break
+                          except ValueError:
+                              pass
+                      break  # every row in a CMS file has the same processing date
+          today = dt.date.today()
+          stale = best is None or (best.year, best.month) < (today.year, today.month)
+          print(f"latest={best or 'none'}")
+          print(f"stale={'true' if stale else 'false'}")
+          print(f"month={today.strftime('%B %Y')}")
+          PY
+
+      - name: Open or follow up on the reminder
+        if: steps.latest.outputs.stale == 'true'
+        run: |
+          gh label create upload-reminder --color FBCA04 --description "Monthly CMS upload reminder" --force >/dev/null
+          OPEN=$(gh issue list --label upload-reminder --state open --json number --jq '.[0].number')
+          SITE="https://${OWNER}.github.io/${GITHUB_REPOSITORY#*/}/"
+          UPLOAD="https://github.com/${GITHUB_REPOSITORY}/upload/main/uploads"
+          if [ -z "$OPEN" ]; then
+            gh issue create --label upload-reminder \
+              --title "Time to upload the ${{ steps.latest.outputs.month }} CMS file" \
+              --body "@${OWNER} the site is still showing CMS data processed **${{ steps.latest.outputs.latest }}**.
+
+          1. Download the **Provider Information** CSV: https://data.cms.gov/provider-data/dataset/4pq5-n9py
+          2. Upload it straight into the uploads folder here: ${UPLOAD}
+          3. Click **Commit changes**. The site (${SITE}) rebuilds in about two minutes, and this reminder closes itself.
+
+          If CMS hasn't posted this month's file yet (check the date on the download page), try again in a few days."
+          else
+            gh issue comment "$OPEN" --body "@${OWNER} friendly follow-up: the site is still on CMS data processed **${{ steps.latest.outputs.latest }}**. Upload link: ${UPLOAD}"
+          fi
+
+      - name: Nothing to do
+        if: steps.latest.outputs.stale != 'true'
+        run: echo "Newest upload (${{ steps.latest.outputs.latest }}) is from this month - no reminder needed."
