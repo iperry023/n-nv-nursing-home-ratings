@@ -10,10 +10,6 @@ on:
     - cron: "17 16 2 * *"   # 2nd of the month, 8:17 AM Pacific (standard time)
     - cron: "17 16 16 * *"  # 16th of the month, follow-up if still not uploaded
   workflow_dispatch: {}
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/monthly-reminder.yml"
 
 permissions:
   contents: read
