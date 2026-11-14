@@ -71,8 +71,9 @@ jobs:
               --body "@${OWNER} the site is still showing CMS data processed **${{ steps.latest.outputs.latest }}**.
 
           1. Download the **Provider Information** CSV: https://data.cms.gov/provider-data/dataset/4pq5-n9py
-          2. Upload it straight into the uploads folder here: ${UPLOAD}
-          3. Click **Commit changes**. The site (${SITE}) rebuilds in about two minutes, and this reminder closes itself.
+          2. Download the **Health Deficiencies** CSV: https://data.cms.gov/provider-data/dataset/r5ix-sfxw (zip it first if it's over 25 MB)
+          3. Upload both straight into the uploads folder here: ${UPLOAD}
+          4. Click **Commit changes**. The site (${SITE}) rebuilds in about two minutes, and this reminder closes itself.
 
           If CMS hasn't posted this month's file yet (check the date on the download page), try again in a few days."
           else

@@ -80,6 +80,32 @@
   .better { color: var(--s5); } .worse { color: var(--s1); }
   @media (prefers-color-scheme: dark) { .better { color: #6fcf8f; } .worse { color: #f08b7e; } }
   .snote { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+  .tagbtn { font: inherit; font-size: 11px; margin-top: 5px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
+  .tagbtn:hover { background: var(--accent); color: #fff; }
+  dialog#tags { width: min(760px, 96vw); max-height: 90vh; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); }
+  dialog#tags::backdrop { background: rgba(0,0,0,.45); }
+  .dhead { position: sticky; top: 0; background: var(--card); padding: 16px 18px 10px; border-bottom: 1px solid var(--line); z-index: 1; }
+  .dhead h3 { margin: 0 34px 4px 0; font-size: 18px; }
+  .dhead .links { font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+  .dclose { position: absolute; top: 10px; right: 12px; font-size: 22px; line-height: 1; border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 4px 8px; }
+  .dbody { padding: 6px 18px 18px; }
+  .survey { margin-top: 14px; }
+  .survey h4 { margin: 0 0 6px; font-size: 14px; display: flex; justify-content: space-between; gap: 8px; }
+  .survey h4 span { color: var(--muted); font-weight: 400; font-size: 12px; }
+  details.tag { border: 1px solid var(--line); border-radius: 9px; margin: 6px 0; }
+  details.tag summary { cursor: pointer; padding: 8px 10px; display: flex; gap: 10px; align-items: baseline; list-style: none; }
+  details.tag summary::-webkit-details-marker { display: none; }
+  details.tag summary::before { content: "\25B8"; color: var(--muted); font-size: 11px; }
+  details.tag[open] summary::before { content: "\25BE"; }
+  .ftag { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ttl { flex: 1; font-size: 13px; }
+  .sev { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; color: #fff; white-space: nowrap; }
+  .sev.l1 { background: #8a929c; } .sev.l2 { background: var(--s3); } .sev.l3 { background: var(--s2); } .sev.l4 { background: var(--s1); }
+  .tagdet { padding: 2px 12px 10px 30px; font-size: 13px; }
+  .tagdet dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 0; }
+  .tagdet dt { color: var(--muted); }
+  .tagdet dd { margin: 0; }
+  .dnote { font-size: 12px; color: var(--muted); margin-top: 14px; }
   footer { font-size: 12px; color: var(--muted); padding-top: 28px; padding-bottom: 40px; }
 </style>
 </head>
@@ -185,6 +211,16 @@
   </ul>
 </main>
 
+<dialog id="tags" aria-labelledby="dtitle">
+  <div class="dhead">
+    <button class="dclose" aria-label="Close" onclick="document.getElementById('tags').close()">&times;</button>
+    <h3 id="dtitle"></h3>
+    <div id="dsub" class="count"></div>
+    <div class="links" id="dlinks"></div>
+  </div>
+  <div class="dbody" id="dbody"></div>
+</dialog>
+
 <footer>
   <p>Source: Centers for Medicare &amp; Medicaid Services, Provider Data Catalog, Nursing Home Provider Information file, the data behind Medicare Care Compare. Point thresholds: CMS Five-Star Quality Rating System Technical Users' Guide. Health tags exclude fire/Life Safety Code citations. {{SERIOUS}} This site is not affiliated with CMS; confirm details on <a href="https://www.medicare.gov/care-compare/">Medicare Care Compare</a> before relying on them.</p>
 </footer>
@@ -242,7 +278,7 @@ function render() {
     const serious = (r.immediate_jeopardy == null && r.actual_harm == null) ? "&mdash;" : ([r.immediate_jeopardy ? `${r.immediate_jeopardy} IJ` : "", r.actual_harm ? `${r.actual_harm} harm` : ""].filter(Boolean).join(", ") || "None");
     const today = (r.health_score_stars_today && r.health && r.health_score_stars_today !== r.health) ? `<span class="range">score earns ${r.health_score_stars_today}&#9733; this month</span>` : "";
     return `<tr>
-      <td class="name"><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a><small>${esc(r.city)}${r.region !== r.city ? " &middot; " + esc(r.region) : ""}${r.beds ? " &middot; " + r.beds + " beds" : ""}</small></td>
+      <td class="name"><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a><small>${esc(r.city)}${r.region !== r.city ? " &middot; " + esc(r.region) : ""}${r.beds ? " &middot; " + r.beds + " beds" : ""}</small><button class="tagbtn" data-ccn="${r.ccn}">F-tags &amp; reports &#9656;</button></td>
       <td class="num">${num(r.miles)}</td>
       <td>${star(r.overall)}</td>
       <td>${star(r.health, r.health_range)}</td>
@@ -278,6 +314,7 @@ function render() {
         ${stat("Fines (3 yrs)", money(r.fines_usd))}${stat("Denials", r.payment_denials || 0)}
       </dl>
       ${flags ? `<div class="fflags">${flags}</div>` : ""}
+      <button class="tagbtn" data-ccn="${r.ccn}">F-tags &amp; reports &#9656;</button>
     </div>`;
   }).join("");
   document.querySelector("#s tbody").innerHTML = list.map(r => `<tr>
@@ -340,6 +377,52 @@ document.getElementById("region").addEventListener("change", render);
 document.getElementById("sort").addEventListener("change", e => { const [k, d] = e.target.value.split(":"); sortKey = k; sortDir = Number(d); render(); });
 [...new Set(rows.map(r => r.region))].sort().forEach(r => {
   const o = document.createElement("option"); o.value = o.textContent = r; document.getElementById("region").appendChild(o);
+});
+
+// F-tag panel
+const LEVEL = { A: 1, B: 1, C: 1, D: 2, E: 2, F: 2, G: 3, H: 3, I: 3, J: 4, K: 4, L: 4 };
+function openTags(ccn) {
+  const r = rows.find(x => x.ccn === ccn);
+  if (!r) return;
+  document.getElementById("dtitle").textContent = r.name;
+  document.getElementById("dsub").textContent = `${r.city}, ${r.state} \u00b7 CCN ${r.ccn}` + (r.last_standard_survey ? ` \u00b7 last standard survey ${new Date(r.last_standard_survey + "T12:00:00").toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}` : "");
+  document.getElementById("dlinks").innerHTML =
+    `<a href="${esc(r.inspections_url)}" target="_blank" rel="noopener">Full inspection reports (CMS-2567 PDFs) on Care Compare</a>` +
+    `<a href="${esc(r.propublica_url)}" target="_blank" rel="noopener">Inspection narratives on ProPublica</a>`;
+  let body = "";
+  if (r.citations == null) {
+    body = `<p class="dnote">The F-tag list appears once this month's CMS Health Deficiencies file is uploaded. Until then, use the links above.</p>`;
+  } else if (!r.citations.length) {
+    body = `<p class="dnote">No health deficiencies on record for the last three rating cycles.</p>`;
+  } else {
+    const groups = {};
+    r.citations.forEach(c => { const k = `${c.date || "Undated"}|${c.survey}`; (groups[k] = groups[k] || []).push(c); });
+    body = Object.entries(groups).map(([k, list]) => {
+      const [d, survey] = k.split("|");
+      const when = d === "Undated" ? d : new Date(d + "T12:00:00").toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      return `<div class="survey"><h4>${esc(when)} <span>${esc(survey)} survey &middot; ${list.length} tag${list.length === 1 ? "" : "s"}</span></h4>
+        ${list.map(c => `<details class="tag"><summary><span class="ftag">${esc(c.tag)}</span><span class="ttl">${esc(c.title)}</span>${c.severity ? `<span class="sev l${LEVEL[c.severity] || 1}">${esc(c.severity)}</span>` : ""}</summary>
+          <div class="tagdet"><dl>
+            <dt>Category</dt><dd>${esc(c.category) || "&mdash;"}</dd>
+            <dt>Scope / severity</dt><dd>${esc(c.severity) || "&mdash;"}${c.harm ? ` &mdash; ${esc(c.harm)}; residents affected: ${esc(c.affected)}` : ""}</dd>
+            <dt>Survey type</dt><dd>${esc(c.survey)}</dd>
+            <dt>Survey date</dt><dd>${esc(c.date || "")}</dd>
+            <dt>Date of correction</dt><dd>${esc(c.corrected) || "&mdash;"}</dd>
+            ${c.status ? `<dt>CMS status</dt><dd>${esc(c.status)}</dd>` : ""}
+            ${c.idr ? "<dt>Dispute</dt><dd>Under informal dispute resolution</dd>" : ""}
+          </dl></div></details>`).join("")}
+      </div>`;
+    }).join("");
+  }
+  body += `<p class="dnote">The written findings for each tag are in the full report (CMS-2567) linked above. CMS's public copy usually omits the facility's plan of correction and directs readers to the nursing home or the state survey agency for it. Fire/Life Safety Code tags are not listed.</p>`;
+  document.getElementById("dbody").innerHTML = body;
+  document.getElementById("tags").showModal();
+  document.getElementById("dbody").scrollTop = 0;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest(".tagbtn");
+  if (b) openTags(b.dataset.ccn);
+  if (e.target.id === "tags") e.target.close();  // click outside the panel
 });
 
 // legend

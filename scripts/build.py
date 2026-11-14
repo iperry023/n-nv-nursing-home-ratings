@@ -67,14 +67,20 @@ def load_inputs():
             processed = max((r.get("processing_date", "") for r in rows), default="")
             providers.append((to_date(processed) or dt.date.min, name, rows))
         elif "scope_severity_code" in header:
-            citations.append((name, read_rows(text)))
+            first = next(csv.DictReader(io.StringIO(text)), {})
+            first = {norm(k): v for k, v in first.items() if k}
+            citations.append((to_date(first.get("processing_date")) or dt.date.min, name, text))
     if not providers:
         sys.exit("No CMS Provider Information CSV found in uploads/. Download it from "
                  "https://data.cms.gov/provider-data/dataset/4pq5-n9py and upload it there.")
     providers.sort(key=lambda p: p[0])
     date, name, rows = providers[-1]
     print(f"Using provider file {name} (processed {date}).")
-    return rows, name, citations
+    citations.sort(key=lambda c: c[0])
+    newest_citations = citations[-1] if citations else None
+    if newest_citations:
+        print(f"Using citations file {newest_citations[1]} (processed {newest_citations[0]}).")
+    return rows, name, newest_citations
 
 
 # ---------------------------------------------------------------- column helpers
@@ -274,23 +280,70 @@ def bands(cuts):
 
 # ---------------------------------------------------------------- serious citations
 
-def serious_from_citations(citation_sets, ccns):
-    """Count IJ (J/K/L) and actual harm (G/H/I) health tags from uploaded citation files."""
+SEVERITY = {
+    # letter: (harm level as Care Compare words it, residents affected)
+    "A": ("Potential for minimal harm", "Few"), "B": ("Potential for minimal harm", "Some"),
+    "C": ("Potential for minimal harm", "Many"),
+    "D": ("Minimal harm or potential for actual harm", "Few"), "E": ("Minimal harm or potential for actual harm", "Some"),
+    "F": ("Minimal harm or potential for actual harm", "Many"),
+    "G": ("Actual harm", "Few"), "H": ("Actual harm", "Some"), "I": ("Actual harm", "Many"),
+    "J": ("Immediate jeopardy", "Few"), "K": ("Immediate jeopardy", "Some"), "L": ("Immediate jeopardy", "Many"),
+}
+
+
+def load_citations(citation_file, ccns):
+    """Return {ccn: [citation, ...]} for health (F-tag) citations in the uploaded CMS file."""
+    if not citation_file:
+        return {}
+    _, name, text = citation_file
     out = {}
-    for name, rows in citation_sets:
-        for r in rows:
-            ccn = str(P["ccn"](r) or "").zfill(6)
-            if ccn not in ccns:
-                continue
-            prefix = (pick(r, "deficiency_prefix") or "F").upper()
-            stype = (pick(r, "survey_type") or "health").lower()
-            if prefix in ("K", "E") or "fire" in stype:
-                continue
-            sev = (pick(r, "scope_severity_code") or "").upper()
-            d = out.setdefault(ccn, {"immediate_jeopardy": 0, "actual_harm": 0, "source": f"CMS upload ({name})"})
-            d["immediate_jeopardy"] += sev in ("J", "K", "L")
-            d["actual_harm"] += sev in ("G", "H", "I")
+    for raw in csv.DictReader(io.StringIO(text)):
+        r = {norm(k): (v or "").strip() for k, v in raw.items() if k}
+        ccn = str(P["ccn"](r) or "").zfill(6)
+        if ccn not in ccns:
+            continue
+        prefix = (pick(r, "deficiency_prefix") or "F").upper()
+        stype = (pick(r, "survey_type") or "Health").lower()
+        if prefix in ("K", "E") or "fire" in stype or "life safety" in stype:
+            continue
+        sev = (pick(r, "scope_severity_code") or "").upper()
+        tag_no = pick(r, "deficiency_tag_number", "deficiency_tag") or ""
+        tag_no = tag_no.zfill(4) if tag_no.isdigit() else tag_no
+        kinds = []
+        if yes(pick(r, "standard_deficiency")):
+            kinds.append("Standard")
+        if yes(pick(r, "complaint_deficiency")):
+            kinds.append("Complaint")
+        if yes(pick(r, "infection_control_inspection_deficiency")):
+            kinds.append("Infection control")
+        date = to_date(pick(r, "survey_date"))
+        corrected = to_date(pick(r, "correction_date"))
+        harm, affected = SEVERITY.get(sev, ("", ""))
+        out.setdefault(ccn, []).append({
+            "date": date.isoformat() if date else None,
+            "tag": f"{prefix}{tag_no}",
+            "title": pick(r, "deficiency_description") or "",
+            "category": pick(r, "deficiency_category") or "",
+            "severity": sev,
+            "harm": harm,
+            "affected": affected,
+            "survey": " + ".join(kinds) or "Health",
+            "corrected": corrected.isoformat() if corrected else None,
+            "status": pick(r, "deficiency_corrected") or "",
+            "idr": yes(pick(r, "citation_under_idr")) or yes(pick(r, "citation_under_iidr")),
+        })
+    for lst in out.values():
+        lst.sort(key=lambda c: (c["date"] or "", c["tag"]), reverse=True)
+    print(f"Loaded {sum(len(v) for v in out.values())} health citations for {len(out)} facilities from {name}.")
     return out
+
+
+def serious_counts(cites):
+    return {
+        "immediate_jeopardy": sum(c["severity"] in ("J", "K", "L") for c in cites),
+        "actual_harm": sum(c["severity"] in ("G", "H", "I") for c in cites),
+        "source": "CMS Health Deficiencies file (uploaded)",
+    }
 
 
 def load_supplement():
@@ -334,7 +387,7 @@ def region_for(state, county):
 # ---------------------------------------------------------------- build
 
 def build():
-    rows, provider_file, citation_sets = load_inputs()
+    rows, provider_file, citation_file = load_inputs()
     check_columns(rows)
     chosen = select(rows)
     if not chosen:
@@ -344,7 +397,11 @@ def build():
     cut_info = {s: state_cut_points(rows, s) for s in states}
 
     ccns = {c for _, c, _ in chosen}
-    serious_csv = serious_from_citations(citation_sets, ccns)
+    citations = load_citations(citation_file, ccns)
+    serious_csv = {c: serious_counts(v) for c, v in citations.items()}
+    if citation_file:
+        for c in ccns - set(citations):  # in the file but no health tags on record
+            serious_csv[c] = {"immediate_jeopardy": 0, "actual_harm": 0, "source": "CMS Health Deficiencies file (uploaded)"}
     serious_sup, sup_updated = load_supplement()
 
     out = []
@@ -389,6 +446,9 @@ def build():
             "abuse_icon": yes(P["abuse"](r)),
             "care_compare_url": f"https://www.medicare.gov/care-compare/details/nursing-home/{ccn}?state={state}",
             **staff_fields(r),
+            "citations": citations.get(ccn, []) if citation_file else None,
+            "inspections_url": f"https://www.medicare.gov/care-compare/inspections/nursing-home/{ccn}/health",
+            "propublica_url": f"https://projects.propublica.org/nursing-homes/homes/h-{ccn}",
         })
 
     out.sort(key=lambda x: (x["miles"] if x["miles"] is not None else 999, x["name"]))
@@ -412,7 +472,9 @@ def build():
         "staffing_source": CONFIG["staffing_ranges"]["_source"],
         "qm_ranges": {k: v for k, v in CONFIG["qm_ranges"].items() if not k.startswith("_")},
         "qm_source": CONFIG["qm_ranges"]["_source"],
-        "serious_note": ("Immediate jeopardy / actual harm counts come from an uploaded CMS citations file."
+        "citations_file": citation_file[1] if citation_file else None,
+        "citations_processed": citation_file[0].isoformat() if citation_file and citation_file[0] != dt.date.min else None,
+        "serious_note": ("Immediate jeopardy / actual harm counts and F-tag lists come from CMS's Health Deficiencies file."
                          if serious_csv else
                          f"Immediate jeopardy / actual harm counts are kept up to date separately from "
                          f"CMS-derived inspection records (last checked {sup_updated or 'n/a'})."),

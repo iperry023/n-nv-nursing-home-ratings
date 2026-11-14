@@ -9,8 +9,10 @@ California homes in that radius.
 CMS refreshes Care Compare data about once a month. After it does:
 
 1. Download the **Provider Information** CSV from https://data.cms.gov/provider-data/dataset/4pq5-n9py.
-2. Open the `uploads` folder here → **Add file → Upload files** → drop the CSV → **Commit changes**.
-3. The **Build site** action rebuilds and republishes the page in about two minutes, and saves a dated copy
+2. Download the **Health Deficiencies** CSV from https://data.cms.gov/provider-data/dataset/r5ix-sfxw
+   (zip it first if it's over GitHub's 25 MB browser-upload limit; the build reads .zip files).
+3. Open the `uploads` folder here → **Add file → Upload files** → drop both files → **Commit changes**.
+4. The **Build site** action rebuilds and republishes the page in about two minutes, and saves a dated copy
    of the numbers in `history/`.
 
 CMS blocks automated downloads from GitHub's servers, which is why the file is uploaded by hand.
@@ -24,8 +26,11 @@ once the new file is built.
 
 - Stars, health inspection score, survey dates, tag counts, fines, Special Focus and abuse flags:
   the uploaded CMS Provider Information file.
-- Immediate jeopardy / actual harm counts: `supplements/serious_citations.json`, refreshed monthly from
-  sources that republish CMS deficiency data — or from a CMS health citations CSV, if one is uploaded.
+- F-tag lists (the expandable panel per facility) and immediate jeopardy / actual harm counts: the uploaded
+  CMS Health Deficiencies file. If it's missing, the counts fall back to `supplements/serious_citations.json`,
+  which is refreshed monthly from sources that republish CMS deficiency data.
+- Full statements of deficiencies: each facility links to its Care Compare inspection reports (CMS-2567 PDFs)
+  and its ProPublica page.
 - Health inspection star bands: estimated each month from every facility's score in that state, using CMS's
   percentile method (or CMS's published table, if entered in `config.json`).
 - Staffing and quality point ranges: fixed CMS thresholds in `config.json`. Update them when CMS publishes
