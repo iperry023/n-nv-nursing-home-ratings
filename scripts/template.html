@@ -106,6 +106,32 @@
   .tagdet dt { color: var(--muted); }
   .tagdet dd { margin: 0; }
   .dnote { font-size: 12px; color: var(--muted); margin-top: 14px; }
+  .pick { display: inline-flex; align-items: center; margin-right: 6px; vertical-align: -2px; cursor: pointer; }
+  .pick input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .namewrap { display: flex; align-items: flex-start; gap: 2px; }
+  .cmpbar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 5; display: none; align-items: center; gap: 10px;
+            background: var(--ink); color: var(--bg); padding: 9px 10px 9px 16px; border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.25); font-size: 14px; white-space: nowrap; }
+  .cmpbar.show { display: flex; }
+  .cmpbar button { font: inherit; font-size: 13px; border: 0; border-radius: 999px; padding: 6px 13px; cursor: pointer; }
+  .cmpbar .go { background: var(--accent); color: #fff; font-weight: 600; }
+  .cmpbar .go:disabled { opacity: .5; cursor: default; }
+  .cmpbar .clr { background: transparent; color: var(--bg); text-decoration: underline; padding: 6px 4px; }
+  dialog#cmp { width: min(1200px, 97vw); max-height: 92vh; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); }
+  dialog#cmp::backdrop { background: rgba(0,0,0,.45); }
+  .cmpwrap { overflow: auto; max-height: calc(92vh - 70px); }
+  table.cmp { border-collapse: separate; border-spacing: 0; font-size: 13px; width: 100%; }
+  table.cmp th, table.cmp td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; white-space: normal; }
+  table.cmp thead th { position: sticky; top: 0; z-index: 2; background: var(--card); font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--ink); min-width: 150px; cursor: default; }
+  table.cmp thead th small { display: block; color: var(--muted); font-weight: 400; }
+  table.cmp .rowlbl { position: sticky; left: 0; z-index: 1; background: var(--card); color: var(--muted); font-size: 12px; min-width: 150px; max-width: 190px; }
+  table.cmp thead th.rowlbl { z-index: 3; }
+  table.cmp tr.sec td { background: var(--bg); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); position: static; }
+  table.cmp td.best { background: rgba(35,120,74,.12); font-weight: 700; }
+  table.cmp td.worst { background: rgba(192,57,43,.10); }
+  table.cmp .rm { font: inherit; font-size: 11px; border: 0; background: transparent; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0; margin-top: 4px; }
+  @media (max-width: 600px) { table.cmp thead th { min-width: 118px; font-size: 12px; } table.cmp .rowlbl { min-width: 104px; max-width: 120px; font-size: 11px; } table.cmp th, table.cmp td { padding: 6px 7px; } }
+  body.picking main { padding-bottom: 72px; }
+  .cmpnote { font-size: 12px; color: var(--muted); padding: 10px 18px 14px; }
   footer { font-size: 12px; color: var(--muted); padding-top: 28px; padding-bottom: 40px; }
 </style>
 </head>
@@ -211,6 +237,21 @@
   </ul>
 </main>
 
+<div class="cmpbar" id="cmpbar" role="region" aria-label="Compare facilities">
+  <span id="cmpcount"></span>
+  <button class="go" id="cmpgo">Compare side by side</button>
+  <button class="clr" id="cmpclr">Clear</button>
+</div>
+
+<dialog id="cmp" aria-labelledby="ctitle">
+  <div class="dhead">
+    <button class="dclose" aria-label="Close" onclick="document.getElementById('cmp').close()">&times;</button>
+    <h3 id="ctitle">Side-by-side comparison</h3>
+    <div class="count">Green = best of the facilities shown, red = weakest. <a href="#" id="cmplink">Copy a link to this comparison</a></div>
+  </div>
+  <div class="cmpwrap" id="cmpbody"></div>
+</dialog>
+
 <dialog id="tags" aria-labelledby="dtitle">
   <div class="dhead">
     <button class="dclose" aria-label="Close" onclick="document.getElementById('tags').close()">&times;</button>
@@ -236,6 +277,7 @@ const date = v => v ? new Date(v + "T12:00:00").toLocaleDateString("en-US", { ye
 const num = v => (v === null || v === undefined) ? "&mdash;" : esc(v);
 
 let sortKey = "miles", sortDir = 1, view = "ratings";
+const picked = new Set();
 const SORTS = {
   ratings: [["miles:1", "closest first"], ["name:1", "name"], ["overall:-1", "overall stars"], ["health_score:1", "best inspection score"],
             ["tags_last_standard:-1", "most tags last survey"], ["serious:-1", "most IJ / harm"], ["fines_usd:-1", "highest fines"]],
@@ -278,7 +320,7 @@ function render() {
     const serious = (r.immediate_jeopardy == null && r.actual_harm == null) ? "&mdash;" : ([r.immediate_jeopardy ? `${r.immediate_jeopardy} IJ` : "", r.actual_harm ? `${r.actual_harm} harm` : ""].filter(Boolean).join(", ") || "None");
     const today = (r.health_score_stars_today && r.health && r.health_score_stars_today !== r.health) ? `<span class="range">score earns ${r.health_score_stars_today}&#9733; this month</span>` : "";
     return `<tr>
-      <td class="name"><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a><small>${esc(r.city)}${r.region !== r.city ? " &middot; " + esc(r.region) : ""}${r.beds ? " &middot; " + r.beds + " beds" : ""}</small><button class="tagbtn" data-ccn="${r.ccn}">F-tags &amp; reports &#9656;</button></td>
+      <td class="name"><div class="namewrap"><label class="pick" title="Select to compare"><input type="checkbox" class="cmpchk" data-ccn="${r.ccn}" ${picked.has(r.ccn) ? "checked" : ""} aria-label="Compare ${esc(r.name)}"></label><div><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a><small>${esc(r.city)}${r.region !== r.city ? " &middot; " + esc(r.region) : ""}${r.beds ? " &middot; " + r.beds + " beds" : ""}</small><button class="tagbtn" data-ccn="${r.ccn}">F-tags &amp; reports &#9656;</button></div></div></td>
       <td class="num">${num(r.miles)}</td>
       <td>${star(r.overall)}</td>
       <td>${star(r.health, r.health_range)}</td>
@@ -299,7 +341,7 @@ function render() {
     const serious = (r.immediate_jeopardy == null && r.actual_harm == null) ? "&mdash;" : ([r.immediate_jeopardy ? `${r.immediate_jeopardy} IJ` : "", r.actual_harm ? `${r.actual_harm} harm` : ""].filter(Boolean).join(", ") || "None");
     const stat = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
     return `<div class="fcard">
-      <a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a>
+      <label class="pick" title="Select to compare"><input type="checkbox" class="cmpchk" data-ccn="${r.ccn}" ${picked.has(r.ccn) ? "checked" : ""} aria-label="Compare ${esc(r.name)}"></label><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a>
       <small>${esc(r.city)}${r.miles != null ? " &middot; " + r.miles + " mi" : ""}${r.beds ? " &middot; " + r.beds + " beds" : ""}</small>
       <div class="fstars">
         <div>Overall<br>${star(r.overall)}</div>
@@ -318,7 +360,7 @@ function render() {
     </div>`;
   }).join("");
   document.querySelector("#s tbody").innerHTML = list.map(r => `<tr>
-      <td class="name"><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a><small>${esc(r.city)}${r.case_mix != null ? " &middot; case-mix " + Number(r.case_mix).toFixed(2) : ""}</small></td>
+      <td class="name"><div class="namewrap"><label class="pick" title="Select to compare"><input type="checkbox" class="cmpchk" data-ccn="${r.ccn}" ${picked.has(r.ccn) ? "checked" : ""} aria-label="Compare ${esc(r.name)}"></label><div><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a><small>${esc(r.city)}${r.case_mix != null ? " &middot; case-mix " + Number(r.case_mix).toFixed(2) : ""}</small></div></div></td>
       <td class="num">${num(r.miles)}</td>
       <td>${star(r.staffing, r.staffing_range ? r.staffing_range + " pts" : "")}</td>
       <td class="num">${r.residents != null ? Number(r.residents).toFixed(1) : "&mdash;"}</td>
@@ -334,7 +376,7 @@ function render() {
   document.getElementById("scards").innerHTML = list.map(r => {
     const stat = (label, k, hb) => `<div><dt>${label}</dt><dd class="${tone(k, r[k], hb)}">${fmtStaff(k, r[k])}${ADJ[k] && r[ADJ[k]] != null ? ` <span class="range" style="display:inline">adj ${Number(r[ADJ[k]]).toFixed(2)}</span>` : ""}</dd></div>`;
     return `<div class="fcard">
-      <a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a>
+      <label class="pick" title="Select to compare"><input type="checkbox" class="cmpchk" data-ccn="${r.ccn}" ${picked.has(r.ccn) ? "checked" : ""} aria-label="Compare ${esc(r.name)}"></label><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a>
       <small>${esc(r.city)}${r.miles != null ? " &middot; " + r.miles + " mi" : ""}${r.residents != null ? " &middot; " + Number(r.residents).toFixed(0) + " residents/day" : ""}</small>
       <div class="fstars"><div>Staffing<br>${star(r.staffing, r.staffing_range ? r.staffing_range + " pts" : "")}</div></div>
       <dl class="fstats">
@@ -367,7 +409,7 @@ document.querySelectorAll("#t thead th[data-k], #s thead th[data-k]").forEach(th
 }));
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
   view = b.dataset.view;
-  document.body.className = `view-${view}`;
+  document.body.className = `view-${view}` + (picked.size ? " picking" : "");
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
   sortKey = "miles"; sortDir = 1;
   render();
@@ -377,6 +419,104 @@ document.getElementById("region").addEventListener("change", render);
 document.getElementById("sort").addEventListener("change", e => { const [k, d] = e.target.value.split(":"); sortKey = k; sortDir = Number(d); render(); });
 [...new Set(rows.map(r => r.region))].sort().forEach(r => {
   const o = document.createElement("option"); o.value = o.textContent = r; document.getElementById("region").appendChild(o);
+});
+
+// side-by-side comparison
+function updateBar() {
+  const n = picked.size;
+  document.getElementById("cmpbar").classList.toggle("show", n > 0);
+  document.getElementById("cmpcount").textContent = n === 1 ? "1 selected \u00b7 pick one more" : `${n} selected`;
+  document.getElementById("cmpgo").disabled = n < 2;
+  document.body.classList.toggle("picking", n > 0);
+}
+const fmtD = v => v ? new Date(v + "T12:00:00").toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "&mdash;";
+const n2 = v => v == null ? "&mdash;" : Number(v).toFixed(2);
+const pct = v => v == null ? "&mdash;" : Number(v).toFixed(1) + "%";
+// [label, value getter (number or null, used for best/worst), display, better: "high" | "low" | null]
+const CMP_ROWS = [
+  ["Star ratings"],
+  ["Overall", r => r.overall, r => star(r.overall), "high"],
+  ["Health inspection", r => r.health, r => star(r.health, r.health_range), "high"],
+  ["Staffing", r => r.staffing, r => star(r.staffing, r.staffing_range ? r.staffing_range + " pts" : ""), "high"],
+  ["Quality measures", r => r.qm, r => star(r.qm, r.qm_range ? r.qm_range + " pts" : ""), "high"],
+  ["Inspections"],
+  ["Health inspection score (lower is better)", r => r.health_score, r => num(r.health_score), "low"],
+  ["Last standard survey", r => null, r => fmtD(r.last_standard_survey), null],
+  ["Tags, last standard survey", r => r.tags_last_standard, r => num(r.tags_last_standard), "low"],
+  ["Health tags, 3 rating cycles", r => r.health_tags_on_record, r => num(r.health_tags_on_record), "low"],
+  ["Complaint tags, 3 rating cycles", r => r.complaint_tags, r => num(r.complaint_tags), "low"],
+  ["Immediate jeopardy tags", r => r.immediate_jeopardy, r => num(r.immediate_jeopardy), "low"],
+  ["Actual harm tags", r => r.actual_harm, r => num(r.actual_harm), "low"],
+  ["Fines (3 yrs)", r => r.fines_usd, r => money(r.fines_usd), "low"],
+  ["Payment denials", r => r.payment_denials, r => num(r.payment_denials), "low"],
+  ["Special Focus status", r => null, r => r.special_focus || "None", null],
+  ["CMS abuse icon", r => null, r => r.abuse_icon ? "Yes" : "No", null],
+  ["Staffing (hours per resident per day)"],
+  ["Avg residents per day", r => null, r => r.residents != null ? Number(r.residents).toFixed(1) : "&mdash;", null],
+  ["Nursing case-mix index", r => null, r => n2(r.case_mix), null],
+  ["RN hours", r => r.rn, r => n2(r.rn) + (r.adj_rn != null ? `<span class="range">adj ${n2(r.adj_rn)}</span>` : ""), "high"],
+  ["LPN hours", r => r.lpn, r => n2(r.lpn) + (r.adj_lpn != null ? `<span class="range">adj ${n2(r.adj_lpn)}</span>` : ""), "high"],
+  ["CNA hours", r => r.cna, r => n2(r.cna) + (r.adj_cna != null ? `<span class="range">adj ${n2(r.adj_cna)}</span>` : ""), "high"],
+  ["Total nurse hours", r => r.total, r => n2(r.total) + (r.adj_total != null ? `<span class="range">adj ${n2(r.adj_total)}</span>` : ""), "high"],
+  ["Weekend total nurse hours", r => r.weekend_total, r => n2(r.weekend_total), "high"],
+  ["Weekend RN hours", r => r.weekend_rn, r => n2(r.weekend_rn), "high"],
+  ["PT hours", r => r.pt, r => n2(r.pt), "high"],
+  ["Nursing staff turnover", r => r.turnover_total, r => pct(r.turnover_total), "low"],
+  ["RN turnover", r => r.turnover_rn, r => pct(r.turnover_rn), "low"],
+  ["Administrators who left", r => r.admins_left, r => num(r.admins_left), "low"],
+  ["Facility"],
+  ["City", r => null, r => esc(r.city) + ", " + esc(r.state), null],
+  ["Miles from 89509", r => null, r => num(r.miles), null],
+  ["Certified beds", r => null, r => num(r.beds), null],
+  ["Inspection reports", r => null, r => `<button class="tagbtn" data-ccn="${r.ccn}">F-tags &amp; reports &#9656;</button>`, null],
+];
+function openCompare() {
+  const list = rows.filter(r => picked.has(r.ccn)).sort((a, b) => (a.miles ?? 999) - (b.miles ?? 999));
+  if (list.length < 2) return;
+  const head = `<thead><tr><th class="rowlbl"></th>${list.map(r => `<th><a href="${esc(r.care_compare_url)}" target="_blank" rel="noopener">${esc(r.name)}</a><small>${esc(r.city)}</small><button class="rm" data-rm="${r.ccn}">Remove</button></th>`).join("")}</tr></thead>`;
+  const body = CMP_ROWS.map(row => {
+    if (row.length === 1) return `<tr class="sec"><td colspan="${list.length + 1}">${esc(row[0])}</td></tr>`;
+    const [label, get, show, better] = row;
+    const vals = list.map(get);
+    const nums = vals.filter(v => v != null);
+    let best = null, worst = null;
+    if (better && nums.length >= 2 && Math.min(...nums) !== Math.max(...nums)) {
+      best = better === "high" ? Math.max(...nums) : Math.min(...nums);
+      worst = better === "high" ? Math.min(...nums) : Math.max(...nums);
+    }
+    return `<tr><td class="rowlbl">${esc(label)}</td>${list.map((r, i) => {
+      const cls = vals[i] == null ? "" : vals[i] === best ? "best" : vals[i] === worst ? "worst" : "";
+      return `<td class="${cls}">${show(r)}</td>`;
+    }).join("")}</tr>`;
+  }).join("");
+  document.getElementById("cmpbody").innerHTML = `<table class="cmp">${head}<tbody>${body}</tbody></table>
+    <p class="cmpnote">Best and weakest are marked only where a higher or lower number is clearly better. "adj" = CMS case-mix adjusted hours. Data: CMS, processed ${esc(DATA.meta.cms_processing_date || "")}.</p>`;
+  history.replaceState(null, "", "#compare=" + list.map(r => r.ccn).join(","));
+  const dlg = document.getElementById("cmp");
+  if (!dlg.open) dlg.showModal();
+}
+function setPicked(ccn, on) {
+  on ? picked.add(ccn) : picked.delete(ccn);
+  document.querySelectorAll(`.cmpchk[data-ccn="${ccn}"]`).forEach(c => { c.checked = on; });
+  updateBar();
+}
+document.addEventListener("change", e => {
+  if (e.target.classList.contains("cmpchk")) setPicked(e.target.dataset.ccn, e.target.checked);
+});
+document.getElementById("cmpgo").addEventListener("click", openCompare);
+document.getElementById("cmpclr").addEventListener("click", () => { [...picked].forEach(c => setPicked(c, false)); });
+document.getElementById("cmp").addEventListener("close", () => history.replaceState(null, "", location.pathname + location.search));
+document.getElementById("cmp").addEventListener("click", e => {
+  if (e.target.id === "cmp") e.target.close();
+  const rm = e.target.closest("[data-rm]");
+  if (rm) { setPicked(rm.dataset.rm, false); picked.size >= 2 ? openCompare() : document.getElementById("cmp").close(); }
+});
+document.getElementById("cmplink").addEventListener("click", e => {
+  e.preventDefault();
+  const url = location.href;
+  (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(
+    () => { e.target.textContent = "Link copied"; setTimeout(() => { e.target.textContent = "Copy a link to this comparison"; }, 2000); },
+    () => prompt("Copy this link:", url));
 });
 
 // F-tag panel
@@ -440,6 +580,12 @@ document.getElementById("legend-grid").innerHTML = [
 ].join("");
 
 render();
+(function () {
+  const m = location.hash.match(/compare=([0-9A-Za-z,]+)/);
+  if (!m) return;
+  m[1].split(",").forEach(c => { if (rows.some(r => r.ccn === c)) setPicked(c, true); });
+  if (picked.size >= 2) openCompare();
+})();
 </script>
 </body>
 </html>
