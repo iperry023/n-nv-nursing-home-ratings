@@ -1,0 +1,84 @@
+{
+ "processing_date": "2023-01-01",
+ "source_file": "NH_ProviderInfo_Jan2023.csv",
+ "health_cuts": {
+  "CA": {
+   "cuts": {
+    "5": 31.333,
+    "4": 58.667,
+    "3": 88.667,
+    "2": 143.833
+   },
+   "source": "Estimated from this month's scores for all 1167 rated CA facilities (CMS sets 5\u2605 = best 10%, 4/3/2\u2605 = next ~23% each, 1\u2605 = worst 20%)"
+  },
+  "NV": {
+   "cuts": {
+    "5": 30.0,
+    "4": 58.667,
+    "3": 78.0,
+    "2": 108.667
+   },
+   "source": "Estimated from this month's scores for all 64 rated NV facilities (CMS sets 5\u2605 = best 10%, 4/3/2\u2605 = next ~23% each, 1\u2605 = worst 20%)"
+  }
+ },
+ "staffing_averages": {
+  "CA": {
+   "residents": 80.9,
+   "rn": 0.58,
+   "lpn": 1.2,
+   "cna": 2.54,
+   "total": 4.33,
+   "weekend_total": 3.88,
+   "weekend_rn": 0.44,
+   "pt": 0.08,
+   "adj_rn": 0.57,
+   "adj_lpn": 1.21,
+   "adj_cna": 2.57,
+   "adj_total": 4.32,
+   "adj_weekend_total": 3.87,
+   "turnover_total": 47.8,
+   "turnover_rn": 51.5,
+   "admins_left": 0.8,
+   "case_mix": null
+  },
+  "NV": {
+   "residents": 82.6,
+   "rn": 0.84,
+   "lpn": 1.01,
+   "cna": 2.33,
+   "total": 4.17,
+   "weekend_total": 3.63,
+   "weekend_rn": 0.6,
+   "pt": 0.11,
+   "adj_rn": 0.78,
+   "adj_lpn": 0.98,
+   "adj_cna": 2.39,
+   "adj_total": 4.14,
+   "adj_weekend_total": 3.6,
+   "turnover_total": 53.7,
+   "turnover_rn": 52.5,
+   "admins_left": 0.9,
+   "case_mix": null
+  },
+  "US": {
+   "residents": 78.6,
+   "rn": 0.66,
+   "lpn": 0.88,
+   "cna": 2.22,
+   "total": 3.75,
+   "weekend_total": 3.26,
+   "weekend_rn": 0.45,
+   "pt": 0.07,
+   "adj_rn": 0.69,
+   "adj_lpn": 0.88,
+   "adj_cna": 2.22,
+   "adj_total": 3.77,
+   "adj_weekend_total": 3.28,
+   "turnover_total": 53.9,
+   "turnover_rn": 52.3,
+   "admins_left": 0.8,
+   "case_mix": null
+  }
+ },
+ "national_rows": 15107
+}
