@@ -83,15 +83,30 @@ def fetch_view_rows():
 
 
 def fetch_page_rows():
-    """Last resort: the list page's HTML, which embeds its rows as JSON."""
-    url = f"{SITE}{WEB}/Lists/{urllib.parse.quote(LIST_TITLE)}/AllItems.aspx"
-    code, text = curl(url, accept="text/html")
-    if code != 200:
-        raise RuntimeError(f"list page HTTP {code}: {text[:200]!r}")
-    m = re.search(r'"Row"\s*:\s*(\[.*?\])\s*,\s*"FirstRow"', text, re.S)
-    if not m:
-        raise RuntimeError("list page loaded but its rows weren't found (page may need sign-in or script)")
-    return json.loads(m.group(1))
+    """Last resort: public pages whose HTML embeds the list's rows as JSON (SharePoint ListData)."""
+    urls = [f"{SITE}{WEB}/Lists/{urllib.parse.quote(LIST_TITLE)}/AllItems.aspx",
+            f"{SITE}{WEB}/Pages/QualityAwardRecipients.aspx"]
+    notes = []
+    for url in urls:
+        code, text = curl(url, accept="text/html")
+        title = re.search(r"<title>(.*?)</title>", text, re.S | re.I)
+        notes.append(f"{url} -> HTTP {code}, {len(text)} bytes, title {title.group(1).strip()[:60] if title else '?'!r}, "
+                     f"'Row' x{text.count('\"Row\"')}, ListData x{text.count('ListData')}")
+        if code != 200:
+            continue
+        for m in re.finditer(r'ListData\s*=\s*(\{.*?\});\s*(?:var|WPQ|\n|<)', text, re.S):
+            try:
+                rows = json.loads(m.group(1)).get("Row", [])
+            except ValueError:
+                continue
+            if rows:
+                return rows
+        m = re.search(r'"Row"\s*:\s*(\[.*?\])\s*,\s*"FirstRow"', text, re.S)
+        if m:
+            return json.loads(m.group(1))
+        links = sorted(set(re.findall(r'href="([^"]*(?:Lists|Recipient)[^"]*)"', text)))[:15]
+        notes.append(f"  list links on page: {links}")
+    raise RuntimeError("rows not found in page HTML:\n" + "\n".join(notes))
 
 
 # ---------------------------------------------------------------- normalizing AHCA rows
