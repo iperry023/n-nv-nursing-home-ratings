@@ -34,6 +34,7 @@ SITE = ROOT / "site"
 UPLOADS = ROOT / "uploads"
 CONFIG = json.loads((ROOT / "config.json").read_text())
 SUPPLEMENT = ROOT / "supplements" / "serious_citations.json"
+AWARDS = ROOT / "supplements" / "quality_awards.json"
 
 
 # ---------------------------------------------------------------- reading uploads
@@ -353,6 +354,13 @@ def load_supplement():
     return s.get("facilities", {}), s.get("updated")
 
 
+def load_awards():
+    if not AWARDS.exists():
+        return {}, None
+    a = json.loads(AWARDS.read_text())
+    return a.get("facilities", {}), a.get("checked")
+
+
 # ---------------------------------------------------------------- names
 
 SMALL = {"of", "and", "the", "at", "in", "on", "for", "dba"}
@@ -403,6 +411,7 @@ def build():
         for c in ccns - set(citations):  # in the file but no health tags on record
             serious_csv[c] = {"immediate_jeopardy": 0, "actual_harm": 0, "source": "CMS Health Deficiencies file (uploaded)"}
     serious_sup, sup_updated = load_supplement()
+    awards, awards_checked = load_awards()
 
     out = []
     for r, ccn, dist in chosen:
@@ -449,6 +458,10 @@ def build():
             "citations": citations.get(ccn, []) if citation_file else None,
             "inspections_url": f"https://www.medicare.gov/care-compare/inspections/nursing-home/{ccn}/health",
             "propublica_url": f"https://projects.propublica.org/nursing-homes/homes/h-{ccn}",
+            "award": ({k: awards[ccn].get(k) for k in ("level", "year", "ahca_name", "source", "source_url", "note")}
+                      if awards.get(ccn, {}).get("level") else None),
+            "award_text": (f"{awards[ccn]['level']} {awards[ccn].get('year') or ''}".strip()
+                           if awards.get(ccn, {}).get("level") else ""),
         })
 
     out.sort(key=lambda x: (x["miles"] if x["miles"] is not None else 999, x["name"]))
@@ -474,6 +487,7 @@ def build():
         "qm_source": CONFIG["qm_ranges"]["_source"],
         "citations_file": citation_file[1] if citation_file else None,
         "citations_processed": citation_file[0].isoformat() if citation_file and citation_file[0] != dt.date.min else None,
+        "awards_checked": awards_checked,
         "serious_note": ("Immediate jeopardy / actual harm counts and F-tag lists come from CMS's Health Deficiencies file."
                          if serious_csv else
                          f"Immediate jeopardy / actual harm counts are kept up to date separately from "
@@ -484,7 +498,7 @@ def build():
 
 CSV_COLS = [
     ("Facility", "name"), ("City", "city"), ("State", "state"), ("Region", "region"), ("Miles from origin", "miles"),
-    ("CCN", "ccn"), ("Certified beds", "beds"), ("Overall stars", "overall"), ("Health inspection stars", "health"),
+    ("CCN", "ccn"), ("AHCA/NCAL quality award", "award_text"), ("Certified beds", "beds"), ("Overall stars", "overall"), ("Health inspection stars", "health"),
     ("Staffing stars", "staffing"), ("Quality stars", "qm"), ("Health inspection score (lower is better)", "health_score"),
     ("Stars that score earns this month", "health_score_stars_today"), ("Health inspection star range", "health_range"),
     ("Staffing star range (points of 380)", "staffing_range"), ("Quality star range (points of 2,300)", "qm_range"),

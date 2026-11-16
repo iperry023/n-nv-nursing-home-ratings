@@ -1,0 +1,19 @@
+{
+ "_about": "AHCA/NCAL National Quality Award recipients among the site's facilities. Written by scripts/ahca_awards.py; entries with manual=true are confirmed from public announcements and kept as-is. Bronze = Commitment to Quality, Silver = Achievement in Quality, Gold = Excellence in Quality.",
+ "checked": "2026-11-16",
+ "source_url": "https://www.ahcancal.org/Quality/National-Quality-Award-Program/Pages/QualityAwardRecipients.aspx",
+ "aliases": {
+  "295104": ["Carson Tahoe Transitional Rehabilitation Center", "Carson Tahoe Transitional Rehab"],
+  "295023": ["Carson Nursing and Rehabilitation Center", "Carson Nursing & Rehab Center"]
+ },
+ "facilities": {
+  "295104": {"facility": "Sierra Basin Post Acute", "level": "Bronze", "year": 2024, "manual": true,
+             "ahca_name": "Carson Tahoe Transitional Rehabilitation Center",
+             "source": "Carson Now, 2024 (earned under its former name)", "source_url": "https://www.carsonnow.org/?p=151794"},
+  "295023": {"facility": "Northstar Post Acute", "level": "Bronze", "year": 2019, "manual": true,
+             "ahca_name": "Carson Nursing & Rehab Center",
+             "source": "Nevada Appeal, June 2019 (earned under its former name)",
+             "note": "Older award; may no longer be on AHCA's active list"}
+ },
+ "nearby_recipients_not_matched": []
+}
