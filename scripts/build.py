@@ -13,12 +13,19 @@ Also read:
   * supplements/serious_citations.json - immediate jeopardy / actual harm counts kept
                                           up to date from CMS-derived sources when no
                                           citations CSV is uploaded.
+Each run first INGESTS any national CMS files in uploads/: it keeps only the rows for
+the facilities on this site, saves them by month in data/months/ (plus the handful of
+state/national figures the site needs, in a small .json beside each month), keeps a
+trimmed copy of the newest citations file in data/, and deletes the national uploads.
+The site is then built from data/, and every stored month feeds the trend graphs.
+
 Output (site/): index.html, data.json, data.csv
 
 Standard library only.
 """
 
 import csv
+import gzip
 import datetime as dt
 import html
 import io
@@ -32,6 +39,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 UPLOADS = ROOT / "uploads"
+DATA = ROOT / "data"
+MONTHS = DATA / "months"
+CITES = DATA / "citations.csv.gz"
+CITES_INFO = DATA / "citations.json"
 CONFIG = json.loads((ROOT / "config.json").read_text())
 SUPPLEMENT = ROOT / "supplements" / "serious_citations.json"
 AWARDS = ROOT / "supplements" / "quality_awards.json"
@@ -59,29 +70,119 @@ def read_rows(text):
     return [{norm(k): (v or "").strip() for k, v in r.items() if k} for r in csv.DictReader(io.StringIO(text))]
 
 
-def load_inputs():
-    providers, citations = [], []
-    for name, text in iter_csv_sources():
+def ccn_of(r):
+    return str(P["ccn"](r) or "").zfill(6)
+
+
+def trimmed_csv(text, keep):
+    """Rows of a national CMS CSV whose CCN is in `keep`, as CSV text with the original header."""
+    src = csv.reader(io.StringIO(text))
+    header = next(src, [])
+    idx = [i for i, h in enumerate(header) if norm(h) in ("cms_certification_number_ccn", "federal_provider_number", "ccn")]
+    if not idx:
+        idx = [i for i, h in enumerate(header) if "certification" in norm(h)]
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(header)
+    n = 0
+    for row in src:
+        if idx and len(row) > idx[0] and row[idx[0]].strip().zfill(6) in keep:
+            w.writerow(row)
+            n += 1
+    return out.getvalue(), n
+
+
+def ingest():
+    """Trim national CMS uploads down to this site's facilities, store them by month, delete the originals."""
+    sources = list(iter_csv_sources())
+    if not sources:
+        return []
+    MONTHS.mkdir(parents=True, exist_ok=True)
+    used, keep_all = set(), set()
+    citation_files = []
+    for name, text in sources:
         header = {norm(h) for h in next(csv.reader(io.StringIO(text)), [])}
         if "overall_rating" in header:
             rows = read_rows(text)
-            processed = max((r.get("processing_date", "") for r in rows), default="")
-            providers.append((to_date(processed) or dt.date.min, name, rows))
+            check_columns(rows)
+            processed = max((to_date(r.get("processing_date")) or dt.date.min for r in rows), default=dt.date.min)
+            if processed == dt.date.min:
+                m = re.search(r"([A-Za-z]{3})[a-z]*[_ -]?(20\d\d)", name)
+                processed = dt.datetime.strptime(f"1 {m.group(1)} {m.group(2)}", "%d %b %Y").date() if m else dt.date.today()
+            chosen = select(rows)
+            keep = {c for _, c, _ in chosen}
+            keep_all |= keep
+            states = sorted({(P["state"](r) or "").upper() for r, _, _ in chosen})
+            cuts = {st: state_cut_points(rows, st) for st in states}
+            stats = {
+                "processing_date": processed.isoformat(),
+                "source_file": name.split(":")[0],
+                "health_cuts": {st: {"cuts": c, "source": src} for st, (c, src) in cuts.items()},
+                "staffing_averages": {**{st: staffing_averages(rows, st)[0] for st in sorted(set(states) | {"NV"})},
+                                      "US": staffing_averages(rows, "NV")[1]},
+                "national_rows": len(rows),
+            }
+            key = processed.strftime("%Y-%m")
+            trimmed, n = trimmed_csv(text, keep)
+            (MONTHS / f"{key}.csv").write_text(trimmed)
+            (MONTHS / f"{key}.json").write_text(json.dumps(stats, indent=1))
+            print(f"Ingested {name}: kept {n} of {len(rows)} facilities as data/months/{key}.csv")
+            used.add(name.split(":")[0])
         elif "scope_severity_code" in header:
             first = next(csv.DictReader(io.StringIO(text)), {})
             first = {norm(k): v for k, v in first.items() if k}
-            citations.append((to_date(first.get("processing_date")) or dt.date.min, name, text))
-    if not providers:
-        sys.exit("No CMS Provider Information CSV found in uploads/. Download it from "
-                 "https://data.cms.gov/provider-data/dataset/4pq5-n9py and upload it there.")
-    providers.sort(key=lambda p: p[0])
-    date, name, rows = providers[-1]
-    print(f"Using provider file {name} (processed {date}).")
-    citations.sort(key=lambda c: c[0])
-    newest_citations = citations[-1] if citations else None
-    if newest_citations:
-        print(f"Using citations file {newest_citations[1]} (processed {newest_citations[0]}).")
-    return rows, name, newest_citations
+            citation_files.append((to_date(first.get("processing_date")) or dt.date.min, name, text))
+    if citation_files:
+        if not keep_all:  # citations uploaded alone: keep the facilities in the newest stored month
+            keep_all = {c for _, c, _ in select(latest_month()[1])}
+        citation_files.sort(key=lambda c: c[0])
+        date, name, text = citation_files[-1]
+        old = json.loads(CITES_INFO.read_text()) if CITES_INFO.exists() else {}
+        if not old or (date.isoformat() >= (old.get("processing_date") or "")):
+            trimmed, n = trimmed_csv(text, keep_all)
+            DATA.mkdir(exist_ok=True)
+            with gzip.open(CITES, "wt", newline="") as fh:
+                fh.write(trimmed)
+            CITES_INFO.write_text(json.dumps({"processing_date": date.isoformat() if date != dt.date.min else None,
+                                              "source_file": name.split(":")[0], "rows_kept": n}, indent=1))
+            print(f"Ingested {name}: kept {n} citation rows for this site's facilities")
+        for _, name, _ in citation_files:
+            used.add(name.split(":")[0])
+    for fname in sorted(used):
+        (UPLOADS / fname).unlink()
+        print(f"Removed national file uploads/{fname}")
+    return sorted(used)
+
+
+def month_files():
+    return sorted(MONTHS.glob("*.csv"))
+
+
+def load_month(path):
+    rows = read_rows(path.read_text(encoding="utf-8-sig", errors="replace"))
+    stats = json.loads(path.with_suffix(".json").read_text())
+    for st in stats["health_cuts"].values():
+        if st["cuts"]:
+            st["cuts"] = {int(k): v for k, v in st["cuts"].items()}
+    return stats, rows
+
+
+def latest_month():
+    files = month_files()
+    if not files:
+        sys.exit("No stored CMS data yet. Upload NH_ProviderInfo_*.csv from "
+                 "https://data.cms.gov/provider-data/dataset/4pq5-n9py to uploads/.")
+    stats, rows = load_month(files[-1])
+    return stats, rows, files[-1].stem
+
+
+def load_stored_citations():
+    if not CITES.exists():
+        return None
+    info = json.loads(CITES_INFO.read_text()) if CITES_INFO.exists() else {}
+    with gzip.open(CITES, "rt", newline="") as fh:
+        text = fh.read()
+    return (to_date(info.get("processing_date")) or dt.date.min, info.get("source_file") or "citations", text)
 
 
 # ---------------------------------------------------------------- column helpers
@@ -394,15 +495,53 @@ def region_for(state, county):
 
 # ---------------------------------------------------------------- build
 
+TREND_KEYS = ["overall", "health", "staffing", "qm", "health_score", "tags_last_standard", "health_tags_on_record",
+              "complaint_tags", "fines_usd"] + list(STAFF)
+
+
+def month_metrics(r):
+    m = {
+        "overall": to_int(P["overall"](r)), "health": to_int(P["health"](r)),
+        "staffing": to_int(P["staffing"](r)), "qm": to_int(P["qm"](r)),
+        "health_score": to_float(P["score"](r)),
+        "tags_last_standard": to_int(P["c1_standard"](r)),
+        "health_tags_on_record": sum_cols(r, r"rating_cycle_[0-9_]+_total_number_of_health_deficiencies"),
+        "complaint_tags": sum_cols(r, r"rating_cycle_[0-9_]+_number_of_complaint_health_deficiencies"),
+        "fines_usd": to_int(P["fines_usd"](r)),
+    }
+    m.update(staff_fields(r))
+    return m
+
+
+def trends():
+    """Every stored month's numbers, per facility, plus state and national staffing averages."""
+    files = month_files()
+    months, series, avgs = [], {}, {}
+    for i, path in enumerate(files):
+        stats, rows = load_month(path)
+        months.append(path.stem)
+        for r in rows:
+            ccn = ccn_of(r)
+            for k, v in month_metrics(r).items():
+                series.setdefault(ccn, {}).setdefault(k, [None] * len(files))[i] = v
+        for where, vals in stats["staffing_averages"].items():
+            for k, v in (vals or {}).items():
+                avgs.setdefault(where, {}).setdefault(k, [None] * len(files))[i] = v
+    for d in series.values():  # pad facilities first seen in a later month
+        for k in TREND_KEYS:
+            d.setdefault(k, [None] * len(files))
+    return {"months": months, "facilities": series, "averages": avgs}
+
+
 def build():
-    rows, provider_file, citation_file = load_inputs()
-    check_columns(rows)
+    stats, rows, month_key = latest_month()
+    provider_file = stats.get("source_file")
+    citation_file = load_stored_citations()
     chosen = select(rows)
     if not chosen:
         sys.exit("No facilities matched the area settings in config.json.")
 
-    states = sorted({(P["state"](r) or "").upper() for r, _, _ in chosen})
-    cut_info = {s: state_cut_points(rows, s) for s in states}
+    cut_info = {st: (v["cuts"], v["source"]) for st, v in stats["health_cuts"].items()}
 
     ccns = {c for _, c, _ in chosen}
     citations = load_citations(citation_file, ccns)
@@ -416,7 +555,7 @@ def build():
     out = []
     for r, ccn, dist in chosen:
         state = (P["state"](r) or "").upper()
-        cuts, _ = cut_info[state]
+        cuts, _ = cut_info.get(state, (None, ""))
         health = to_int(P["health"](r))
         staffing = to_int(P["staffing"](r))
         qm = to_int(P["qm"](r))
@@ -465,9 +604,9 @@ def build():
         })
 
     out.sort(key=lambda x: (x["miles"] if x["miles"] is not None else 999, x["name"]))
-    processed = max((to_date(P["processed"](r)) for r, _, _ in chosen if to_date(P["processed"](r))), default=None)
+    processed = to_date(stats.get("processing_date"))
     area = CONFIG["area"]
-    nv_avg, us_avg = staffing_averages(rows, "NV")
+    nv_avg, us_avg = stats["staffing_averages"].get("NV"), stats["staffing_averages"].get("US")
     area_avg = {}
     for key, (_, places) in STAFF.items():
         vals = [f[key] for f in out if f.get(key) is not None]
@@ -477,6 +616,7 @@ def build():
         "built": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "cms_processing_date": processed.isoformat() if processed else None,
         "provider_file": provider_file,
+        "trends": trends(),
         "facility_count": len(out),
         "area": f"within {area['radius_miles']:g} miles of ZIP {area['origin']['zip']}",
         "health_bands": {s: bands(c) for s, (c, _) in cut_info.items()},
@@ -541,6 +681,7 @@ def write_outputs(rows, meta):
 
 
 if __name__ == "__main__":
+    ingest()
     facilities, meta = build()
     write_outputs(facilities, meta)
     print(f"Built {len(facilities)} facilities (CMS data processed {meta['cms_processing_date']}):")

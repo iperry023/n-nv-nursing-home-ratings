@@ -12,3 +12,5 @@ Each month, after CMS refreshes Care Compare, upload **two** files into this fol
 
 Then: **Add file → Upload files** (while you're inside this folder), drop the files in, **Commit changes**.
 The site rebuilds in about two minutes. Old files can stay; the newest of each is used.
+
+After each build, these national files are trimmed to this site's facilities (stored in `../data/`) and removed from this folder, so it's normal for it to look empty.

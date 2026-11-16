@@ -12,8 +12,15 @@ CMS refreshes Care Compare data about once a month. After it does:
 2. Download the **Health Deficiencies** CSV from https://data.cms.gov/provider-data/dataset/r5ix-sfxw
    (zip it first if it's over GitHub's 25 MB browser-upload limit; the build reads .zip files).
 3. Open the `uploads` folder here → **Add file → Upload files** → drop both files → **Commit changes**.
-4. The **Build site** action rebuilds and republishes the page in about two minutes, and saves a dated copy
-   of the numbers in `history/`.
+4. The **Build site** action rebuilds and republishes the page in about two minutes. It keeps only the rows for
+   this site's facilities (saved by month in `data/months/`, with the state and national figures the site
+   needs, and a trimmed citations file in `data/`), then deletes the national files from `uploads/`.
+   Every stored month feeds the trend graphs (click any number on the site).
+
+**Older months:** CMS posts past monthly files in its archive (data.cms.gov/provider-data/archived-data/nursing-homes).
+Uploading an older `NH_ProviderInfo_*.csv` the same way adds that month to the trend graphs.
+**Changing the area** in `config.json` only applies to months uploaded afterward, since other facilities'
+rows aren't kept.
 
 CMS blocks automated downloads from GitHub's servers, which is why the file is uploaded by hand.
 

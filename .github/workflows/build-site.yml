@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "uploads/**"
+      - "data/**"
       - "supplements/**"
       - "scripts/**"
       - "config.json"
@@ -28,11 +29,13 @@ jobs:
       ready: ${{ steps.check.outputs.ready }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main   # newest main, so back-to-back uploads build on each other
 
       - id: check
         name: Look for a CMS upload
         run: |
-          if compgen -G "uploads/*.csv" >/dev/null || compgen -G "uploads/*.zip" >/dev/null; then echo "ready=true" >> "$GITHUB_OUTPUT";
+          if compgen -G "uploads/*.csv" >/dev/null || compgen -G "uploads/*.zip" >/dev/null || compgen -G "data/months/*.csv" >/dev/null; then echo "ready=true" >> "$GITHUB_OUTPUT";
           else echo "ready=false" >> "$GITHUB_OUTPUT"; echo "::notice::No CMS file in uploads/ yet - nothing to publish."; fi
 
       - uses: actions/setup-python@v5
@@ -40,21 +43,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build the site from the newest CMS file
+      - name: Trim new CMS uploads to this site's facilities and build the site
         if: steps.check.outputs.ready == 'true'
         run: python scripts/build.py
 
-      - name: Save a dated copy of the data
+      - name: Save the trimmed month and remove the national files
         if: steps.check.outputs.ready == 'true'
         run: |
-          mkdir -p history
-          D=$(python3 -c "import json;print(json.load(open('site/data.json'))['meta']['cms_processing_date'] or 'unknown')")
-          cp site/data.csv "history/cms-$D.csv"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add history
-          git diff --cached --quiet || git commit -m "Data snapshot for CMS processing date $D"
-          git push || echo "Snapshot push skipped"
+          git add -A data uploads
+          if git diff --cached --quiet; then echo "Nothing new to store."; exit 0; fi
+          git commit -m "Store trimmed CMS data ($(ls data/months/*.csv | tail -1 | xargs basename .csv)) and remove national upload files"
+          for i in 1 2 3; do git pull --rebase -q origin main && git push -q origin HEAD:main && break; sleep 5; done
 
       - uses: actions/configure-pages@v5
         if: steps.check.outputs.ready == 'true'

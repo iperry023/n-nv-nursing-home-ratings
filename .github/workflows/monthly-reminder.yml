@@ -1,6 +1,6 @@
 name: Monthly upload reminder
 
-# On the 2nd of each month: if the newest CMS file in uploads/ is older than this month,
+# On the 2nd of each month: if the newest stored CMS month (data/months/) is older than this month,
 # open a GitHub issue that @mentions the owner (GitHub emails them).
 # On the 16th: if that reminder is still open, add a follow-up comment (another email).
 # The Build site workflow closes the reminder when a new file is uploaded.
@@ -28,25 +28,11 @@ jobs:
         id: latest
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import csv, datetime as dt, glob, io, re
+          import datetime as dt, glob, json
           best = None
-          for path in glob.glob("uploads/*.csv"):
-              with open(path, encoding="utf-8-sig", errors="replace") as fh:
-                  reader = csv.reader(fh)
-                  header = [re.sub(r"[^a-z0-9]+", "_", h.lower()).strip("_") for h in next(reader, [])]
-                  if "processing_date" not in header:
-                      continue
-                  i = header.index("processing_date")
-                  for row in reader:
-                      v = (row[i] if i < len(row) else "")[:10]
-                      for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
-                          try:
-                              d = dt.datetime.strptime(v, fmt).date()
-                              best = d if best is None or d > best else best
-                              break
-                          except ValueError:
-                              pass
-                      break  # every row in a CMS file has the same processing date
+          for path in glob.glob("data/months/*.json"):  # one per stored CMS month
+              d = dt.date.fromisoformat(json.load(open(path))["processing_date"])
+              best = d if best is None or d > best else best
           today = dt.date.today()
           stale = best is None or (best.year, best.month) < (today.year, today.month)
           print(f"latest={best or 'none'}")

@@ -29,7 +29,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "supplements" / "quality_awards.json"
-HISTORY = ROOT / "history"
 
 SITE = "https://www.ahcancal.org"
 WEB = "/Quality/National-Quality-Award-Program"
@@ -178,14 +177,12 @@ def similar(a, b):
 # ---------------------------------------------------------------- facilities on the site
 
 def site_facilities():
-    """CCN, name, city, state for the facilities in the newest history snapshot."""
-    import csv
-    snaps = sorted(HISTORY.glob("cms-*.csv"))
-    if not snaps:
-        sys.exit("No history/cms-*.csv yet; run the site build first.")
-    with open(snaps[-1], newline="") as fh:
-        return [{"ccn": r["CCN"].zfill(6), "name": r["Facility"], "city": r["City"], "state": r["State"]}
-                for r in csv.DictReader(fh)]
+    """CCN, name, city, state for the facilities in the newest stored CMS month."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import build as B
+    _, rows, _ = B.latest_month()
+    return [{"ccn": ccn, "name": B.nice_name(B.P["name"](r)), "city": (B.P["city"](r) or "").title(),
+             "state": (B.P["state"](r) or "").upper()} for r, ccn, _ in B.select(rows)]
 
 
 def match(recipients, facilities, aliases):

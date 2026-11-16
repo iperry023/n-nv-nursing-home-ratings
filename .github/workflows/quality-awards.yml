@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   awards:
@@ -18,7 +19,9 @@ jobs:
           python-version: "3.12"
       - name: Search AHCA's recipient list
         run: python3 scripts/ahca_awards.py
-      - name: Save changes (this also rebuilds the site)
+      - name: Save changes and rebuild the site
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if git diff --quiet supplements/quality_awards.json; then
             echo "No award changes."
@@ -29,3 +32,4 @@ jobs:
           git add supplements/quality_awards.json
           git commit -m "Update AHCA quality awards"
           git push
+          gh workflow run build-site.yml --ref main
