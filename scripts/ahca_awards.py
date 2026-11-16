@@ -82,6 +82,17 @@ def fetch_view_rows():
     return json.loads(text).get("Row", [])
 
 
+def list_data(text):
+    for m in re.finditer(r'ListData\s*=\s*(\{.*?\});\s*(?:var|WPQ|\n|<)', text, re.S):
+        try:
+            d = json.loads(m.group(1))
+        except ValueError:
+            continue
+        if "Row" in d:
+            return d
+    return None
+
+
 def fetch_page_rows():
     """Last resort: public pages whose HTML embeds the list's rows as JSON (SharePoint ListData)."""
     urls = [f"{SITE}{WEB}/Lists/{urllib.parse.quote(LIST_TITLE)}/AllItems.aspx",
@@ -94,13 +105,21 @@ def fetch_page_rows():
                      f"'Row' x{text.count('\"Row\"')}, ListData x{text.count('ListData')}")
         if code != 200:
             continue
-        for m in re.finditer(r'ListData\s*=\s*(\{.*?\});\s*(?:var|WPQ|\n|<)', text, re.S):
-            try:
-                rows = json.loads(m.group(1)).get("Row", [])
-            except ValueError:
-                continue
-            if rows:
-                return rows
+        data = list_data(text)
+        if data and data.get("Row"):
+            rows, seen, pages = list(data["Row"]), set(), 1
+            base = url.split("?")[0]
+            while data.get("NextHref") and data["NextHref"] not in seen and pages < 200:
+                seen.add(data["NextHref"])
+                code, text = curl(base + data["NextHref"].replace("\\u0026", "&"), accept="text/html")
+                data = list_data(text) if code == 200 else None
+                if not data:
+                    print(f"  paging stopped at page {pages} (HTTP {code})", file=sys.stderr)
+                    break
+                rows += data.get("Row", [])
+                pages += 1
+            print(f"  read {pages} page(s) of the list from {base}")
+            return rows
         m = re.search(r'"Row"\s*:\s*(\[.*?\])\s*,\s*"FirstRow"', text, re.S)
         if m:
             return json.loads(m.group(1))
@@ -214,7 +233,9 @@ def main():
     recipients = [to_recipient(r) for r in rows]
     print("Sample columns:", sorted(norm_key(k) for k in rows[0])[:40])
     in_area = [r for r in recipients if r["state"] in {f["state"] for f in facilities}]
-    print(f"{len(in_area)} recipients in {sorted({f['state'] for f in facilities})}")
+    print(f"{len(recipients)} recipients total; {len(in_area)} in {sorted({f['state'] for f in facilities})}:")
+    for r in in_area:
+        print(f"    {r['name']} ({r['city']}, {r['state']}) {r['level']} {r['year'] or ''}")
 
     found = match(recipients, facilities, aliases)
     manual = {k: v for k, v in existing.get("facilities", {}).items() if v.get("manual")}
